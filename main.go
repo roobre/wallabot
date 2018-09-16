@@ -55,15 +55,21 @@ func main() {
 		return
 	}
 
-	sentfile, err := os.Create("sent.json")
+	sentfile, err := os.OpenFile("sent.json", os.O_RDWR | os.O_CREATE | os.O_APPEND, 0644)
 	if err != nil {
 		fmt.Println("Could not create sent.json: " + err.Error())
 		return
 	}
 
+	err = json.NewDecoder(sentfile).Decode(&sent)
+	if err != nil {
+		fmt.Println("Could decode already sent notifications: " + err.Error())
+		return
+	}
+
 	for {
 		for _, user := range db {
-			latlong := strings.Split(user.Location, ":")
+			latlong := strings.Split(user.Location, ",")
 			for _, search := range user.Searches {
 				search["latitude"] = latlong[0]
 				search["longitude"] = latlong[1]
@@ -103,8 +109,11 @@ func main() {
 				time.Sleep(2 * time.Second)
 			}
 
-			sentfile.Truncate(0)
-			json.NewEncoder(sentfile).Encode(sent)
+			err = sentfile.Truncate(0)
+			err = json.NewEncoder(sentfile).Encode(&sent)
+			if err != nil {
+				log.Println("Could write back sent notifications: " + err.Error())
+			}
 
 			time.Sleep(1 * time.Minute)
 		}
