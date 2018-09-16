@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"os"
 	"time"
+	"strings"
 )
 
 const TG_API_BASE = "https://api.telegram.org"
@@ -62,7 +63,11 @@ func main() {
 
 	for {
 		for _, user := range db {
+			latlong := strings.Split(user.Location, ":")
 			for _, search := range user.Searches {
+				search["latitude"] = latlong[0]
+				search["longitude"] = latlong[1]
+
 				resp, err := http.Get(wpReq(search))
 				if err != nil {
 					log.Println("Error while requesting from wallapop, sleeping 10s: " + err.Error())
