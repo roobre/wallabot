@@ -1,18 +1,22 @@
-[
-  {
-    "chatId": 61640048,
+{
+  "61640048": {
     "location": "41.3947688,2.0787284",
-    "searches": [
-      {
+    "searches": {
+      "6700k": {
         "kws": "6700k",
         "maxPrice": 110,
         "minPrice": 40
       },
-      {
-        "kws": "7800x",
-        "maxPrice": 160,
+      "7700k": {
+        "kws": "7700k",
+        "maxPrice": 200,
+        "minPrice": 50
+      },
+      "7700": {
+        "kws": "i7+7700",
+        "maxPrice": 200,
         "minPrice": 50
       }
-    ]
+    }
   }
-]
+}

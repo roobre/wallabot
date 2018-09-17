@@ -1,35 +1,36 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
 	"log"
 	"net/http"
-	"net/url"
 	"os"
-	"time"
 	"strings"
+	"time"
 )
 
 const TG_API_BASE = "https://api.telegram.org"
 const WP_API_BASE = "https://es.wallapop.com/rest/items"
-const WP_SENDLINK_BASE = "https://es.wallapop.com/item"
+const WP_SENDLINK_BASE = "https://p.wallapop.com/i"
 
-var db []struct {
-	ChatId   uint64
+var db map[uint64]struct {
+	// ChatId   uint64
 	Location string
-	Searches []map[string]interface{}
+	Searches map[string]map[string]interface{}
 }
 
 var sent map[string]string
 
 type wpResponse struct {
-	Items []wpItem
+	Items []*wpItem
 }
 
 type wpItem struct {
 	ItemId uint64
+	Title  string
 	Url    string
 	Price  string
 }
@@ -55,7 +56,7 @@ func main() {
 		return
 	}
 
-	sentfile, err := os.OpenFile("sent.json", os.O_RDWR | os.O_CREATE | os.O_APPEND, 0644)
+	sentfile, err := os.OpenFile("sent.json", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0644)
 	if err != nil {
 		fmt.Println("Could not create sent.json: " + err.Error())
 		return
@@ -68,9 +69,9 @@ func main() {
 	}
 
 	for {
-		for _, user := range db {
+		for chatId, user := range db {
 			latlong := strings.Split(user.Location, ",")
-			for _, search := range user.Searches {
+			for name, search := range user.Searches {
 				search["latitude"] = latlong[0]
 				search["longitude"] = latlong[1]
 
@@ -84,15 +85,21 @@ func main() {
 				json.NewDecoder(resp.Body).Decode(&items)
 
 				for _, item := range items.Items {
-					if sent[fmt.Sprintf("%d:%d", user.ChatId, item.ItemId)] == item.Price {
+					if sent[fmt.Sprintf("%d:%d", chatId, item.ItemId)] == item.Price {
 						continue
 					}
 
-					resp, err := http.Get(tgReq(fmt.Sprintf(
-						"sendMessage?chat_id=%d&text=%s",
-						user.ChatId,
-						url.QueryEscape(WP_SENDLINK_BASE+"/"+item.Url))))
+					log.Printf("Match for %d, \"%s/%d\"", chatId, name, item.ItemId)
 
+					var tgData struct {
+						Chat_id uint64 `json:"chat_id"`
+						Text    string `json:"text"`
+					}
+					tgData.Chat_id = chatId
+					tgData.Text = name + ", " + item.Price + ":\n" + WP_SENDLINK_BASE + "/" + fmt.Sprintf("%d", item.ItemId)
+
+					js, _ := json.Marshal(&tgData)
+					resp, err := http.Post(tgReq("sendMessage"), "application/json", bytes.NewReader(js))
 					if err != nil {
 						log.Println("Error sending item to tg: " + err.Error())
 						continue
@@ -103,7 +110,7 @@ func main() {
 						continue
 					}
 
-					sent[fmt.Sprintf("%d:%d", user.ChatId, item.ItemId)] = item.Price
+					sent[fmt.Sprintf("%d:%d", chatId, item.ItemId)] = item.Price
 				}
 
 				time.Sleep(2 * time.Second)
