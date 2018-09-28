@@ -1,22 +1,10 @@
 {
-  "61640048": {
-    "location": "41.3947688,2.0787284",
-    "searches": {
-      "6700k": {
-        "kws": "6700k",
-        "maxPrice": 110,
-        "minPrice": 40
-      },
-      "7700k": {
-        "kws": "7700k",
-        "maxPrice": 200,
-        "minPrice": 50
-      },
-      "7700": {
-        "kws": "i7+7700",
-        "maxPrice": 200,
-        "minPrice": 50
-      }
+  "users": {
+    "61640048": {
+      "Location": "5.1,4.0",
+      "Searches": {},
+      "Sent": {}
     }
-  }
+  },
+  "config": {}
 }
