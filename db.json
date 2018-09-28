@@ -2,7 +2,20 @@
   "users": {
     "61640048": {
       "Location": "5.1,4.0",
-      "Searches": {},
+      "Searches": {
+        "mysearch": {
+          "Params": {
+            "foo": "bar"
+          },
+          "Active": false
+        },
+        "mysearch2": {
+          "Params": {
+            "foo": "bar"
+          },
+          "Active": false
+        }
+      },
       "Sent": {}
     }
   },

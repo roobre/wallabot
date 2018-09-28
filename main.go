@@ -63,7 +63,7 @@ func main() {
 	tg.Handle("/search", tgSearch)
 
 	tg.Handle("/help", func(m *tb.Message) {
-		tg.Send(m.Sender, "/location: Set location (/location 40.23981,1.39681")
+		tg.Send(m.Sender, "/location: Set location (`/location 40.23981,1.39681`)")
 	})
 
 	go wallapoll()
@@ -76,7 +76,7 @@ func tgStart(m *tb.Message) {
 	db.Lock()
 	db.Users()[m.Chat.ID] = &user{
 		Location: "0.000,0.000",
-		Searches: make(map[string]map[string]interface{}),
+		Searches: make(map[string]search),
 		Sent:     make(map[uint64]uint),
 	}
 	db.Unlock()
@@ -88,7 +88,7 @@ func tgStart(m *tb.Message) {
 func tgLocation(m *tb.Message) {
 	rx := regexp.MustCompile(`^\d+\.\d+,\d+\.\d+$`)
 	if !rx.MatchString(m.Payload) {
-		tg.Reply(m, "Usage: /location lat,long (/location 41.3658,1.2568)")
+		tg.Reply(m, "Usage: `/location lat,long` (`/location 41.3658,1.2568`)")
 		return
 	}
 
@@ -97,7 +97,7 @@ func tgLocation(m *tb.Message) {
 	db.Unlock()
 
 	// TODO: Answer with venue
-	tg.Reply(m, "Location set to " + m.Payload)
+	tg.Reply(m, "Location set to "+m.Payload)
 }
 
 func tgSearches(m *tb.Message) {
@@ -116,9 +116,16 @@ func tgSearches(m *tb.Message) {
 	}
 
 	msg := "Your searches:\n"
-	for name, params := range user.Searches {
-		msg += name + ":\n"
-		for name, value := range params {
+	for name, search := range user.Searches {
+		var activeStr string
+		if search.Active {
+			activeStr = "active"
+		} else {
+			activeStr = "inactive"
+		}
+
+		msg += name + " (" + activeStr + "):\n"
+		for name, value := range search.Params {
 			msg += fmt.Sprintf("  %s: %v\n", name, value)
 		}
 		msg += "\n"
@@ -129,7 +136,7 @@ func tgSearches(m *tb.Message) {
 
 func tgSearch(m *tb.Message) {
 	if len(m.Payload) == 0 {
-		tg.Reply(m, "Usage: " + m.Text + " searchname")
+		tg.Reply(m, "Usage: `"+m.Text+" searchname <active|inactive>|<PARAM VALUE>`", tb.ParseMode("Markdown"))
 		return
 	}
 }
@@ -155,10 +162,14 @@ func wallapoll() {
 		for chatId, user := range users {
 			latlong := strings.Split(user.Location, ",")
 			for name, search := range user.Searches {
-				search["latitude"] = latlong[0]
-				search["longitude"] = latlong[1]
+				if !search.Active {
+					continue
+				}
 
-				resp, err := http.Get(wpReq(search))
+				search.Params["latitude"] = latlong[0]
+				search.Params["longitude"] = latlong[1]
+
+				resp, err := http.Get(wpReq(search.Params))
 				if err != nil {
 					log.Println("Error while requesting from wallapop, sleeping 10s: " + err.Error())
 					time.Sleep(10 * time.Second)

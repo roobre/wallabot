@@ -23,8 +23,13 @@ type Database interface {
 
 type user struct {
 	Location string
-	Searches map[string]map[string]interface{}
+	Searches map[string]search
 	Sent     map[uint64]uint
+}
+
+type search struct {
+	Params map[string]interface{}
+	Active bool
 }
 
 func (u *user) Copy() *user {
@@ -32,16 +37,17 @@ func (u *user) Copy() *user {
 		return nil
 	}
 
-	searches := make(map[string]map[string]interface{})
-	for k, v := range u.Searches {
-		values := make(map[string]interface{})
-		for l, w := range v {
-			values[l] = w
+	newSearches := make(map[string]search)
+	for searchName, search := range u.Searches {
+		params := make(map[string]interface{})
+		for k, v := range search.Params {
+			params[k] = v
 		}
-		searches[k] = values
+		search.Params = params
+		newSearches[searchName] = search
 	}
 	// TODO: Copy sent too, for now is not needed
-	return &user{Location: u.Location, Searches: searches}
+	return &user{Location: u.Location, Searches: newSearches}
 }
 
 type config struct {
