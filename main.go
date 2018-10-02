@@ -72,13 +72,20 @@ func main() {
 		for chatId, user := range db {
 			latlong := strings.Split(user.Location, ",")
 			for name, search := range user.Searches {
-				search["latitude"] = latlong[0]
-				search["longitude"] = latlong[1]
+				request, err := http.NewRequest(http.MethodGet, wpReq(search), &bytes.Buffer{})
+				if err != nil {
+					log.Println("Creating wallapop request: " + err.Error())
+					return
+				}
 
-				resp, err := http.Get(wpReq(search))
+				request.AddCookie(&http.Cookie{Name: "searchLat", Value: latlong[0]})
+				request.AddCookie(&http.Cookie{Name: "searchLng", Value: latlong[1]})
+
+				resp, err := http.DefaultClient.Do(request)
 				if err != nil {
 					log.Println("Error while requesting from wallapop, sleeping 10s: " + err.Error())
 					time.Sleep(10 * time.Second)
+					continue
 				}
 
 				items := wpResponse{}
