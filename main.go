@@ -73,20 +73,23 @@ func main() {
 		for chatId, user := range db {
 			latlong := strings.Split(user.Location, ",")
 			for name, search := range user.Searches {
-				search["latitude"] = latlong[0]
-				search["longitude"] = latlong[1]
+				cookies := make(map[string]string, 2)
+				cookies["searchLat"] = latlong[0]
+				cookies["searchLng"] = latlong[1]
 
-				resp, err := http.Get(wpReq(search))
+				resp, err := http.DefaultClient.Do(wpReq(search, cookies))
 				if err != nil {
 					log.Println("Error while requesting from wallapop, sleeping 10s: " + err.Error())
 					time.Sleep(10 * time.Second)
 				}
 
 				items := wpResponse{}
-				err = json.NewDecoder(resp.Body).Decode(&items)
+				responseBuf := &bytes.Buffer{}
+				err = json.NewDecoder(io.TeeReader(resp.Body, responseBuf)).Decode(&items)
 				_ = resp.Body.Close()
 				if err != nil {
-					log.Println("Error decoding response from wallapop: " + err.Error())
+					log.Println("Error decoding response from wallapop (): " + err.Error())
+					io.Copy(os.Stderr, responseBuf)
 					continue
 				}
 
@@ -141,11 +144,26 @@ func tgReq(endpoint string) string {
 	return fmt.Sprintf("%s/bot%s/%s", TG_API_BASE, TG_BOT_TOKEN, endpoint)
 }
 
-func wpReq(params map[string]interface{}) string {
-	str := WP_API_BASE + "/?_p=1"
+func wpReq(params map[string]interface{}, cookies map[string]string) *http.Request {
+	url := WP_API_BASE + "?_p=1"
 	for k, v := range params {
-		str += fmt.Sprintf("&"+k+"=%v", v)
+		url += fmt.Sprintf("&%s=%v", k, v)
 	}
 
-	return str
+	req, err := http.NewRequest(http.MethodGet, url, nil)
+	if err != nil {
+		panic("Error building request: " + err.Error())
+	}
+
+	req.Header.Add("Accept", "application/json")
+	req.Header.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.113 Safari/537.36")
+
+	for key, value := range cookies {
+		req.AddCookie(&http.Cookie{
+			Name:  key,
+			Value: value,
+		})
+	}
+
+	return req
 }
