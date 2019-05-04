@@ -81,6 +81,7 @@ func main() {
 				if err != nil {
 					log.Println("Error while requesting from wallapop, sleeping 10s: " + err.Error())
 					time.Sleep(10 * time.Second)
+					continue
 				}
 
 				items := wpResponse{}
