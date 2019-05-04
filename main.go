@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
@@ -82,7 +83,12 @@ func main() {
 				}
 
 				items := wpResponse{}
-				json.NewDecoder(resp.Body).Decode(&items)
+				err = json.NewDecoder(resp.Body).Decode(&items)
+				_ = resp.Body.Close()
+				if err != nil {
+					log.Println("Error decoding response from wallapop: " + err.Error())
+					continue
+				}
 
 				for _, item := range items.Items {
 					if sent[fmt.Sprintf("%d:%d", chatId, item.ItemId)] == item.Price {
@@ -106,9 +112,12 @@ func main() {
 					}
 
 					if resp.StatusCode != 200 {
-						log.Println("Response: " + resp.Status + " " + resp.Request.URL.String())
+						body, _ := ioutil.ReadAll(resp.Body)
+						log.Printf("Error: %d requesting %s: %s", resp.StatusCode, resp.Request.URL.String(), string(body))
+						_ = resp.Body.Close()
 						continue
 					}
+					_ = resp.Body.Close()
 
 					sent[fmt.Sprintf("%d:%d", chatId, item.ItemId)] = item.Price
 				}
