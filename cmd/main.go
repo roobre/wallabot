@@ -9,12 +9,12 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"roob.re/wallabot/wallapop"
 	"strings"
 	"time"
 )
 
 const TG_API_BASE = "https://api.telegram.org"
-const WP_API_BASE = "https://es.wallapop.com/rest/items"
 const WP_SENDLINK_BASE = "https://p.wallapop.com/i"
 
 var db map[uint64]struct {
@@ -24,17 +24,6 @@ var db map[uint64]struct {
 }
 
 var sent map[string]string
-
-type wpResponse struct {
-	Items []*wpItem
-}
-
-type wpItem struct {
-	ItemId uint64
-	Title  string
-	Url    string
-	Price  string
-}
 
 func main() {
 	if len(os.Args) > 1 {
@@ -77,14 +66,14 @@ func main() {
 				cookies["searchLat"] = latlong[0]
 				cookies["searchLng"] = latlong[1]
 
-				resp, err := http.DefaultClient.Do(wpReq(search, cookies))
+				resp, err := http.DefaultClient.Do(wallapop.WpReq(search, cookies))
 				if err != nil {
 					log.Println("Error while requesting from wallapop, sleeping 10s: " + err.Error())
 					time.Sleep(10 * time.Second)
 					continue
 				}
 
-				items := wpResponse{}
+				items := wallapop.Response{}
 				responseBuf := &bytes.Buffer{}
 				err = json.NewDecoder(io.TeeReader(resp.Body, responseBuf)).Decode(&items)
 				_ = resp.Body.Close()
@@ -95,18 +84,18 @@ func main() {
 				}
 
 				for _, item := range items.Items {
-					if sent[fmt.Sprintf("%d:%d", chatId, item.ItemId)] == item.Price {
+					if sent[fmt.Sprintf("%d:%d", chatId, item.ID)] == item.Price {
 						continue
 					}
 
-					log.Printf("Match for %d, \"%s/%d\"", chatId, name, item.ItemId)
+					log.Printf("Match for %d, \"%s/%d\"", chatId, name, item.ID)
 
 					var tgData struct {
 						Chat_id uint64 `json:"chat_id"`
 						Text    string `json:"text"`
 					}
 					tgData.Chat_id = chatId
-					tgData.Text = name + ", " + item.Price + ":\n" + WP_SENDLINK_BASE + "/" + fmt.Sprintf("%d", item.ItemId)
+					tgData.Text = name + ", " + item.Price + ":\n" + WP_SENDLINK_BASE + "/" + fmt.Sprintf("%d", item.ID)
 
 					js, _ := json.Marshal(&tgData)
 					resp, err := http.Post(tgReq("sendMessage"), "application/json", bytes.NewReader(js))
@@ -123,7 +112,7 @@ func main() {
 					}
 					_ = resp.Body.Close()
 
-					sent[fmt.Sprintf("%d:%d", chatId, item.ItemId)] = item.Price
+					sent[fmt.Sprintf("%d:%d", chatId, item.ID)] = item.Price
 				}
 
 				time.Sleep(2 * time.Second)
@@ -145,26 +134,3 @@ func tgReq(endpoint string) string {
 	return fmt.Sprintf("%s/bot%s/%s", TG_API_BASE, TG_BOT_TOKEN, endpoint)
 }
 
-func wpReq(params map[string]interface{}, cookies map[string]string) *http.Request {
-	url := WP_API_BASE + "?_p=1"
-	for k, v := range params {
-		url += fmt.Sprintf("&%s=%v", k, v)
-	}
-
-	req, err := http.NewRequest(http.MethodGet, url, nil)
-	if err != nil {
-		panic("Error building request: " + err.Error())
-	}
-
-	req.Header.Add("Accept", "application/json")
-	req.Header.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.113 Safari/537.36")
-
-	for key, value := range cookies {
-		req.AddCookie(&http.Cookie{
-			Name:  key,
-			Value: value,
-		})
-	}
-
-	return req
-}
