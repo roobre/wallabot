@@ -1,7 +1,5 @@
 package wallapop
 
-const searchUrl = "/general/search"
-
 type searchResponse struct {
 	Items []Item `json:"search_objects"`
 
@@ -11,8 +9,8 @@ type searchResponse struct {
 
 type SearchArgs struct {
 	Keywords  string  `url:"keywords"`
-	Latitude  float64 `url:"latitude"`
-	Longitude float64 `url:"longitude"`
+	Latitude  float64 `url:"latitude,omitempty"`
+	Longitude float64 `url:"longitude,omitempty"`
 	OrderBy   string  `url:"order_by,omitempty"`
 	Language  string  `url:"language,omitempty"`
 	Urgent    bool    `url:"urgent,omitempty"`
