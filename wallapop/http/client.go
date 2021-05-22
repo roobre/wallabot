@@ -25,7 +25,7 @@ const baseURLv3 = "https://api.wallapop.com/api/v3"
 func New() *Client {
 	jar, err := cookiejar.New(nil)
 	if err != nil {
-		panic(fmt.Errorf("error creating cookie jar: %w", err))
+		panic(fmt.Errorf("creating cookie jar: %w", err))
 	}
 
 	return &Client{
@@ -47,12 +47,12 @@ type Client struct {
 func (c *Client) Request(endpoint string, method string, params interface{}) (*http.Response, error) {
 	args, err := query.Values(params)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("marshalling url params: %w", err)
 	}
 
 	u, err := url.Parse(baseURLv3 + endpoint)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("bulding url: %w", err)
 	}
 	u.RawQuery = args.Encode()
 
@@ -65,7 +65,7 @@ func (c *Client) Request(endpoint string, method string, params interface{}) (*h
 
 	err = c.sign(req)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("signing request: %w", err)
 	}
 
 	return c.HttpClient.Do(req)
@@ -105,7 +105,7 @@ func (c *Client) sign(r *http.Request) error {
 	encoder := base64.NewEncoder(base64.StdEncoding, signatureBuf)
 	_, err := encoder.Write(hm.Sum(nil))
 	if err != nil {
-		return err
+		return fmt.Errorf("b64 encoding hmac: %w", err)
 	}
 
 	// Set header
