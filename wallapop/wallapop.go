@@ -22,7 +22,9 @@ func (sa SearchArgs) WithDefaults() SearchArgs {
 }
 
 func (c *Client) Search(args SearchArgs) ([]Item, error) {
-	response, err := c.http.Request(searchUrl, http.MethodGet, args.WithDefaults())
+	const searchPath = "/general/search"
+
+	response, err := c.http.Request(searchPath, http.MethodGet, args.WithDefaults())
 	if err != nil {
 		return nil, fmt.Errorf("could not make http request: %w", err)
 	}
