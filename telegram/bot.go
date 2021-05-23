@@ -6,19 +6,24 @@ import (
 	"gopkg.in/tucnak/telebot.v2"
 	"log"
 	"net/http"
+	"roob.re/wallabot/database"
 	"roob.re/wallabot/wallapop"
+	"strconv"
+	"strings"
 	"time"
 )
 
 type Wallabot struct {
 	bot *telebot.Bot
 	wp  *wallapop.Client
+	db  *database.Database
 }
 
 type WallabotConfig struct {
 	Token   string
 	Verbose bool
 	Timeout time.Duration
+	DBPath  string
 }
 
 func (wc WallabotConfig) WithDefaults() (WallabotConfig, error) {
@@ -28,6 +33,10 @@ func (wc WallabotConfig) WithDefaults() (WallabotConfig, error) {
 
 	if wc.Timeout == 0 {
 		wc.Timeout = 30 * time.Second
+	}
+
+	if wc.DBPath == "" {
+		wc.DBPath = "./data"
 	}
 
 	return wc, nil
@@ -44,7 +53,7 @@ func NewWallabot(c WallabotConfig) (*Wallabot, error) {
 		Token:     c.Token,
 		Verbose:   c.Verbose,
 		Poller:    &telebot.LongPoller{Timeout: 10 * time.Second},
-		ParseMode: telebot.ModeMarkdownV2,
+		ParseMode: telebot.ModeMarkdown,
 		Reporter: func(err error) {
 			log.Printf("telebot recovered from: %v", err)
 		},
@@ -54,15 +63,43 @@ func NewWallabot(c WallabotConfig) (*Wallabot, error) {
 		return nil, fmt.Errorf("error creating bot: %w", err)
 	}
 
+	db, err := database.New(c.DBPath)
+	if err != nil {
+		return nil, fmt.Errorf("creating db: %w", err)
+	}
+
 	return (&Wallabot{
 		bot: bot,
 		wp:  wallapop.New(),
+		db:  db,
 	}).withHandlers(), nil
 }
 
 func (wb *Wallabot) withHandlers() *Wallabot {
 	wb.bot.Handle("/search", wb.HandleSearch)
+	wb.bot.Handle("/list", wb.HandleSavedSearches)
+	wb.bot.Handle("/new", wb.HandleNewSearch)
+	wb.bot.Handle("/delete", wb.HandleDeleteSearch)
 	wb.bot.Handle(telebot.OnText, wb.HandleHelp)
+
+	_ = wb.bot.SetCommands([]telebot.Command{
+		{
+			Text:        "/search",
+			Description: "Immediately search for items",
+		},
+		{
+			Text:        "/list",
+			Description: "See my saved searches",
+		},
+		{
+			Text:        "/new",
+			Description: "Create a new saved search",
+		},
+		{
+			Text:        "/delete",
+			Description: "Delete a saved search",
+		},
+	})
 
 	return wb
 }
@@ -75,7 +112,13 @@ func (wb *Wallabot) Start() error {
 func (wb *Wallabot) HandleSearch(m *telebot.Message) {
 	const maxResults = 10
 
-	keywords := m.Payload
+	keywords := strings.TrimSpace(m.Payload)
+	if len(keywords) == 0 {
+		sendLog(wb.bot.Reply(m,
+			fmt.Sprintf("`Usage: %s [keywords...]`", "/search"),
+		))
+		return
+	}
 
 	results, err := wb.wp.Search(wallapop.SearchArgs{
 		Keywords: keywords,
@@ -101,17 +144,114 @@ func (wb *Wallabot) HandleSearch(m *telebot.Message) {
 		))
 	}
 	for _, item := range results {
-		//var msg interface{}
-		//if len(item.Images) > 0 {
-		//	msg = &telebot.Photo{
-		//		File:      telebot.FromURL(item.Images[0].OriginalURL),
-		//		Caption:   item.Markdown(),
-		//	}
-		//} else {
-		//	msg = item.Markdown()
-		//}
-		sendLog(wb.bot.Reply(m, item.Markdown()))
+		sendLog(wb.bot.Reply(m, item.Markdown(), &telebot.SendOptions{
+			ParseMode: telebot.ModeMarkdownV2,
+		}))
 	}
+}
+
+func (wb *Wallabot) HandleNewSearch(m *telebot.Message) {
+	parts := strings.Split(m.Payload, " ")
+	if len(parts) < 2 {
+		sendLog(wb.bot.Reply(m,
+			fmt.Sprintf("`Usage: %s <max price> [keywords...]`", "/new"),
+		))
+		return
+	}
+
+	maxPrice, err := strconv.ParseFloat(parts[0], 64)
+	if err != nil {
+		sendLog(wb.bot.Reply(m,
+			fmt.Sprintf("I did not understand `%s` as a maximum price, the first word must be a number!", parts[0]),
+		))
+		return
+	}
+
+	keywords := strings.TrimSpace(strings.Join(parts[1:], " "))
+	if len(keywords) == 0 {
+		sendLog(wb.bot.Reply(m,
+			"You need to specify at least one keyword",
+		))
+		return
+	}
+
+	err = wb.db.UserUpdate(m.Sender.ID, func(u *database.User) error {
+		u.Searches.Set(&database.SavedSearch{
+			Keywords: keywords,
+			MaxPrice: maxPrice,
+		})
+		return nil
+	})
+	if err != nil {
+		sendLog(wb.bot.Reply(m,
+			fmt.Sprintf("error creating search: %v", err),
+		))
+	}
+
+	sendLog(wb.bot.Reply(m,
+		fmt.Sprintf("Created new saved search for `%s` and max price of %s", keywords, parts[0]),
+	))
+}
+
+func (wb *Wallabot) HandleSavedSearches(m *telebot.Message) {
+	var searches database.SavedSearches
+	err := wb.db.User(m.Sender.ID, func(u *database.User) error {
+		searches = u.Searches
+		return nil
+	})
+	if err != nil {
+		sendLog(wb.bot.Reply(m,
+			fmt.Sprintf("error getting saved searches: %v", err),
+		))
+		return
+	}
+
+	if len(searches) == 0 {
+		sendLog(wb.bot.Reply(m,
+			"You do not have any saved search. You can create one with /new.",
+		))
+		return
+	}
+
+	var msg string
+	for _, ss := range searches {
+		msg += fmt.Sprintf("- `%s` (%f, %d)\n", ss.Keywords, ss.MaxPrice, len(ss.SentItems))
+	}
+	sendLog(wb.bot.Reply(m, strings.TrimSpace(msg)))
+}
+
+func (wb *Wallabot) HandleDeleteSearch(m *telebot.Message) {
+	keywords := strings.TrimSpace(m.Payload)
+
+	if len(keywords) == 0 {
+		sendLog(wb.bot.Reply(m,
+			fmt.Sprintf("`Usage: %s [keywords...]`", "/delete"),
+		))
+		return
+	}
+
+	var found bool
+	err := wb.db.UserUpdate(m.Sender.ID, func(u *database.User) error {
+		found = u.Searches.Delete(m.Payload)
+		return nil
+	})
+	if err != nil {
+		sendLog(wb.bot.Reply(m,
+			fmt.Sprintf("error getting saved searches: %v", err),
+		))
+		return
+	}
+
+	if !found {
+		sendLog(wb.bot.Reply(m,
+			fmt.Sprintf("You do not have any saved search for `%s`", keywords),
+		))
+		return
+	}
+
+	sendLog(wb.bot.Reply(m,
+		fmt.Sprintf("Search `%s` has been deleted", keywords),
+	))
 }
 
 func (wb *Wallabot) HandleHelp(m *telebot.Message) {
@@ -119,9 +259,6 @@ func (wb *Wallabot) HandleHelp(m *telebot.Message) {
 		"Oopsie woopsie, I did not get that command :(\n"+
 			"Right now I support:\n"+
 			"- /search <search query>",
-		&telebot.SendOptions{
-			ParseMode: telebot.ModeMarkdown,
-		},
 	))
 }
 
@@ -129,5 +266,6 @@ func sendLog(m *telebot.Message, err error) *telebot.Message {
 	if err != nil {
 		log.Printf("error sending message: %v", err)
 	}
+
 	return m
 }
