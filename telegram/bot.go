@@ -76,10 +76,10 @@ func NewWallabot(c WallabotConfig) (*Wallabot, error) {
 }
 
 func (wb *Wallabot) withHandlers() *Wallabot {
-	wb.bot.Handle("/search", wb.HandleSearch)
-	wb.bot.Handle("/list", wb.HandleSavedSearches)
-	wb.bot.Handle("/new", wb.HandleNewSearch)
-	wb.bot.Handle("/delete", wb.HandleDeleteSearch)
+	wb.bot.Handle("/search", wb.withUser(wb.HandleSearch))
+	wb.bot.Handle("/list", wb.withUser(wb.HandleSavedSearches))
+	wb.bot.Handle("/new", wb.withUser(wb.HandleNewSearch))
+	wb.bot.Handle("/delete", wb.withUser(wb.HandleDeleteSearch))
 	wb.bot.Handle(telebot.OnText, wb.HandleHelp)
 
 	_ = wb.bot.SetCommands([]telebot.Command{
@@ -215,7 +215,7 @@ func (wb *Wallabot) HandleSavedSearches(m *telebot.Message) {
 
 	var msg string
 	for _, ss := range searches {
-		msg += fmt.Sprintf("- `%s` (%f, %d)\n", ss.Keywords, ss.MaxPrice, len(ss.SentItems))
+		msg += fmt.Sprintf("- `%s` (%.2f, %d)\n", ss.Keywords, ss.MaxPrice, len(ss.SentItems))
 	}
 	sendLog(wb.bot.Reply(m, strings.TrimSpace(msg)))
 }
@@ -260,6 +260,25 @@ func (wb *Wallabot) HandleHelp(m *telebot.Message) {
 			"Right now I support:\n"+
 			"- /search <search query>",
 	))
+}
+
+func (wb *Wallabot) withUser(handler func(message *telebot.Message)) func(message *telebot.Message) {
+	return func(m *telebot.Message) {
+		u := &database.User{
+			ID:     m.Sender.ID,
+			Name:   m.Sender.Username,
+			ChatID: m.Chat.ID,
+			Searches: database.SavedSearches{},
+		}
+
+		err := wb.db.AssertUser(u)
+		if err != nil {
+			log.Printf("error asserting user '%d': %v", m.Sender.ID, err)
+			return
+		}
+
+		handler(m)
+	}
 }
 
 func sendLog(m *telebot.Message, err error) *telebot.Message {

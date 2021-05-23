@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/dgraph-io/badger/v3"
 )
@@ -15,6 +16,9 @@ type Database struct {
 type User struct {
 	ID       int
 	Name     string
+	ChatID   int64
+	Lat      float64
+	Long     float64
 	Searches SavedSearches
 }
 
@@ -63,11 +67,6 @@ func New(path string) (*Database, error) {
 }
 
 func (db *Database) User(id int, f func(u *User) error) error {
-	err := db.createUserIfMissing(id)
-	if err != nil {
-		return fmt.Errorf("asserting user existence: %w", err)
-	}
-
 	idb, err := idToBytes(id)
 	if err != nil {
 		return err
@@ -88,11 +87,6 @@ func (db *Database) User(id int, f func(u *User) error) error {
 }
 
 func (db *Database) UserUpdate(id int, f func(u *User) error) error {
-	err := db.createUserIfMissing(id)
-	if err != nil {
-		return fmt.Errorf("asserting user existence: %w", err)
-	}
-
 	idb, err := idToBytes(id)
 	if err != nil {
 		return err
@@ -148,37 +142,39 @@ func (db *Database) putUser(user *User, txn *badger.Txn) error {
 	return txn.Set(idb, userJson)
 }
 
-func (db *Database) createUserIfMissing(userId int) error {
-	var exists bool
-	idb, err := idToBytes(userId)
+func (db *Database) AssertUser(u *User) error {
+	if u.ID == 0 {
+		return fmt.Errorf("cannot assert user with ID 0")
+	}
+
+	idb, err := idToBytes(u.ID)
 	if err != nil {
 		return err
 	}
 
+	existingUser := &User{}
 	err = db.bdg.View(func(txn *badger.Txn) error {
-		_, err := txn.Get(idb)
-		if err != nil && err != badger.ErrKeyNotFound {
+		item, err := txn.Get(idb)
+		if err != nil {
 			return err
-		} else if err == nil {
-			exists = true
 		}
-		return nil
+
+		return item.Value(func(val []byte) error {
+			return json.Unmarshal(val, existingUser)
+		})
 	})
-	if err != nil {
+	if err != nil && !errors.Is(err, badger.ErrKeyNotFound) {
 		return err
 	}
 
-	if exists {
+	if u.ID == existingUser.ID &&
+		u.ChatID == existingUser.ChatID &&
+		u.Name == existingUser.Name {
 		return nil
 	}
 
 	err = db.bdg.Update(func(txn *badger.Txn) error {
-		user := &User{
-			ID:       userId,
-			Name:     "",
-			Searches: SavedSearches{},
-		}
-		encodedUser, err := json.Marshal(user)
+		encodedUser, err := json.Marshal(u)
 		if err != nil {
 			return err
 		}
