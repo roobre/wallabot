@@ -1,5 +1,11 @@
 package wallapop
 
+import (
+	"fmt"
+	"regexp"
+	"strings"
+)
+
 type searchResponse struct {
 	Items []Item `json:"search_objects"`
 
@@ -34,4 +40,28 @@ type Item struct {
 
 type ItemImage struct {
 	OriginalURL string `json:"original"`
+}
+
+// Special characters in markdown
+var mdSpecial = regexp.MustCompile("[\\[\\]()~`>#+\\-=|{}.!_*\\\\]")
+
+func markdownEscape(source string) string {
+	return mdSpecial.ReplaceAllString(source, `\$0`)
+}
+
+func replaceCurrency(source string) string {
+	return strings.NewReplacer("EUR", "€", "USD", "$").Replace(source)
+}
+
+func (i *Item) Markdown() string {
+	const wpLinkBase = "https://es.wallapop.com/item"
+	return fmt.Sprintf(
+		"*%d%s*\n"+
+			"*%s*\n"+
+			//"%.80s\\.\\.\\.\n"+
+			"%s/%s",
+		int(i.Price/100), replaceCurrency(i.Currency), markdownEscape(i.Title),
+		//markdownEscape(i.Description),
+		markdownEscape(wpLinkBase), markdownEscape(i.Slug),
+	)
 }
