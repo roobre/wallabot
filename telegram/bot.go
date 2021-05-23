@@ -159,6 +159,11 @@ func (wb *Wallabot) HandleNewSearch(m *telebot.Message) {
 		return
 	}
 
+	// If user uses , as a decimal separator, replace it
+	if strings.Contains(parts[0], ",") && !strings.Contains(parts[0], ".") {
+		parts[0] = strings.ReplaceAll(parts[0], ",", ".")
+	}
+
 	maxPrice, err := strconv.ParseFloat(parts[0], 64)
 	if err != nil {
 		sendLog(wb.bot.Reply(m,
