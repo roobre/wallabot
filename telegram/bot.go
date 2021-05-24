@@ -350,11 +350,7 @@ func (wb *Wallabot) HandleMe(m *telebot.Message) {
 }
 
 func (wb *Wallabot) HandleHelp(m *telebot.Message) {
-	sendLog(wb.bot.Reply(m,
-		"Oopsie woopsie, I did not get that command :(\n"+
-			"Right now I support:\n"+
-			"- /search <search query>",
-	))
+	sendLog(wb.bot.Reply(m, "Oopsie woopsie, I did not get that command :("))
 }
 
 func (wb *Wallabot) processNotifications() {
