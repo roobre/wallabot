@@ -1,12 +1,11 @@
 package database
 
 import (
-	"bytes"
-	"encoding/binary"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/dgraph-io/badger/v3"
+	"roob.re/wallabot/wallapop"
 )
 
 type Database struct {
@@ -33,6 +32,12 @@ type SavedSearch struct {
 type SentItems map[ItemID]ItemPrice
 type ItemID string
 type ItemPrice float64
+
+type Notification struct {
+	User   *User
+	Item   *wallapop.Item
+	Search string
+}
 
 func (ss SavedSearches) Get(keywords string) *SavedSearch {
 	return ss[keywords]
@@ -67,11 +72,7 @@ func New(path string) (*Database, error) {
 }
 
 func (db *Database) User(id int, f func(u *User) error) error {
-	idb, err := idToBytes(id)
-	if err != nil {
-		return err
-	}
-
+	idb := userKey(id)
 	return db.bdg.View(func(txn *badger.Txn) error {
 		user, err := db.getUser(idb, txn)
 		if err != nil {
@@ -87,11 +88,7 @@ func (db *Database) User(id int, f func(u *User) error) error {
 }
 
 func (db *Database) UserUpdate(id int, f func(u *User) error) error {
-	idb, err := idToBytes(id)
-	if err != nil {
-		return err
-	}
-
+	idb := userKey(id)
 	return db.bdg.Update(func(txn *badger.Txn) error {
 		user, err := db.getUser(idb, txn)
 		if err != nil {
@@ -129,10 +126,7 @@ func (db *Database) putUser(user *User, txn *badger.Txn) error {
 		return fmt.Errorf("refusing to store user with id 0")
 	}
 
-	idb, err := idToBytes(user.ID)
-	if err != nil {
-		return fmt.Errorf("converting id to bytes: %w", err)
-	}
+	idb := userKey(user.ID)
 
 	userJson, err := json.Marshal(user)
 	if err != nil {
@@ -147,13 +141,10 @@ func (db *Database) AssertUser(u *User) error {
 		return fmt.Errorf("cannot assert user with ID 0")
 	}
 
-	idb, err := idToBytes(u.ID)
-	if err != nil {
-		return err
-	}
+	idb := userKey(u.ID)
 
 	existingUser := &User{}
-	err = db.bdg.View(func(txn *badger.Txn) error {
+	err := db.bdg.View(func(txn *badger.Txn) error {
 		item, err := txn.Get(idb)
 		if err != nil {
 			return err
@@ -187,12 +178,6 @@ func (db *Database) AssertUser(u *User) error {
 	return nil
 }
 
-func idToBytes(id int) ([]byte, error) {
-	byteID := &bytes.Buffer{}
-	err := binary.Write(byteID, binary.LittleEndian, int64(id))
-	if err != nil {
-		return nil, fmt.Errorf("converting uid to []byte: %w", err)
-	}
-
-	return byteID.Bytes(), nil
+func userKey(id int) []byte {
+	return []byte(fmt.Sprintf("user_%d", id))
 }
