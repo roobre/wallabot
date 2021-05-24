@@ -1,8 +1,17 @@
 FROM golang:alpine as builder
 
+# Badger can use zstd compression via cgo
+RUN apk add gcc libc-dev
+
 WORKDIR /src
-COPY . /src
-RUN CGO_ENABLED=0 go build -o wallabot ./cmd
+
+# Cache go modules layer independently from the rest of the source files
+COPY go.mod go.sum ./
+RUN go mod download
+
+# Build
+COPY . ./
+RUN go build -o wallabot ./cmd
 
 FROM alpine:latest
 RUN apk add --no-cache tini
