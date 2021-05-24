@@ -60,7 +60,7 @@ func (i *Item) Markdown() string {
 			"*%s*\n"+
 			//"%.80s\\.\\.\\.\n"+
 			"%s/%s",
-		int(i.Price/100), replaceCurrency(i.Currency), markdownEscape(i.Title),
+		int(i.Price), replaceCurrency(i.Currency), markdownEscape(i.Title),
 		//markdownEscape(i.Description),
 		markdownEscape(wpLinkBase), markdownEscape(i.Slug),
 	)

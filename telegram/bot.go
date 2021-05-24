@@ -181,7 +181,7 @@ func (wb *Wallabot) HandleNewSearch(m *telebot.Message) {
 	err = wb.db.UserUpdate(m.Sender.ID, func(u *database.User) error {
 		u.Searches.Set(&database.SavedSearch{
 			Keywords: keywords,
-			MaxPrice: math.Round(maxPrice * 100),
+			MaxPrice: math.Round(maxPrice),
 		})
 		return nil
 	})
@@ -218,7 +218,7 @@ func (wb *Wallabot) HandleSavedSearches(m *telebot.Message) {
 
 	var msg string
 	for _, ss := range searches {
-		msg += fmt.Sprintf("- `%s` (%.2f 📈, %d 🔔)\n", ss.Keywords, ss.MaxPrice / 100, len(ss.SentItems))
+		msg += fmt.Sprintf("- `%s` (%.2f 📈, %d 🔔)\n", ss.Keywords, ss.MaxPrice, len(ss.SentItems))
 	}
 	sendLog(wb.bot.Reply(m, strings.TrimSpace(msg)))
 }
