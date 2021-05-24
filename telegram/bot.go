@@ -3,8 +3,9 @@ package telegram
 import (
 	"errors"
 	"fmt"
+	log "github.com/sirupsen/logrus"
 	"gopkg.in/tucnak/telebot.v2"
-	"log"
+	"math"
 	"net/http"
 	"roob.re/wallabot/database"
 	"roob.re/wallabot/wallapop"
@@ -14,48 +15,47 @@ import (
 )
 
 type Wallabot struct {
+	Notify chan database.Notification
+
 	bot *telebot.Bot
 	wp  *wallapop.Client
 	db  *database.Database
+
+	c WallabotConfig
 }
 
 type WallabotConfig struct {
-	Token   string
-	Verbose bool
-	Timeout time.Duration
-	DBPath  string
+	Verbose     bool
+	Timeout     time.Duration
+	QueueLength int
 }
 
-func (wc WallabotConfig) WithDefaults() (WallabotConfig, error) {
-	if wc.Token == "" {
-		return wc, errors.New("token must not be empty")
-	}
-
+func (wc WallabotConfig) WithDefaults() WallabotConfig {
 	if wc.Timeout == 0 {
 		wc.Timeout = 30 * time.Second
 	}
 
-	if wc.DBPath == "" {
-		wc.DBPath = "./data"
+	if wc.QueueLength == 0 {
+		wc.QueueLength = 64
 	}
 
-	return wc, nil
+	return wc
 }
 
-func NewWallabot(c WallabotConfig) (*Wallabot, error) {
-	c, err := c.WithDefaults()
-	if err != nil {
-		return nil, fmt.Errorf("error expanding config: %w", err)
-
+func NewWallabot(token string, db *database.Database, wp *wallapop.Client, c WallabotConfig) (*Wallabot, error) {
+	if token == "" {
+		return nil, errors.New("token must not be empty")
 	}
 
 	bot, err := telebot.NewBot(telebot.Settings{
-		Token:     c.Token,
+		Token:     token,
 		Verbose:   c.Verbose,
 		Poller:    &telebot.LongPoller{Timeout: 10 * time.Second},
 		ParseMode: telebot.ModeMarkdown,
 		Reporter: func(err error) {
-			log.Printf("telebot recovered from: %v", err)
+			log.WithFields(log.Fields{
+				"component": "bot",
+			}).Printf("telebot recovered from: %v", err)
 		},
 		Client: http.DefaultClient,
 	})
@@ -63,15 +63,12 @@ func NewWallabot(c WallabotConfig) (*Wallabot, error) {
 		return nil, fmt.Errorf("error creating bot: %w", err)
 	}
 
-	db, err := database.New(c.DBPath)
-	if err != nil {
-		return nil, fmt.Errorf("creating db: %w", err)
-	}
-
 	return (&Wallabot{
-		bot: bot,
-		wp:  wallapop.New(),
-		db:  db,
+		bot:    bot,
+		wp:     wp,
+		db:     db,
+		c:      c.WithDefaults(),
+		Notify: make(chan database.Notification, c.QueueLength),
 	}).withHandlers(), nil
 }
 
@@ -105,6 +102,7 @@ func (wb *Wallabot) withHandlers() *Wallabot {
 }
 
 func (wb *Wallabot) Start() error {
+	go wb.processNotifications()
 	wb.bot.Start()
 	return nil
 }
@@ -183,7 +181,7 @@ func (wb *Wallabot) HandleNewSearch(m *telebot.Message) {
 	err = wb.db.UserUpdate(m.Sender.ID, func(u *database.User) error {
 		u.Searches.Set(&database.SavedSearch{
 			Keywords: keywords,
-			MaxPrice: maxPrice,
+			MaxPrice: math.Round(maxPrice * 100),
 		})
 		return nil
 	})
@@ -220,7 +218,7 @@ func (wb *Wallabot) HandleSavedSearches(m *telebot.Message) {
 
 	var msg string
 	for _, ss := range searches {
-		msg += fmt.Sprintf("- `%s` (%.2f, %d)\n", ss.Keywords, ss.MaxPrice, len(ss.SentItems))
+		msg += fmt.Sprintf("- `%s` (%.2f 📈, %d 🔔)\n", ss.Keywords, ss.MaxPrice / 100, len(ss.SentItems))
 	}
 	sendLog(wb.bot.Reply(m, strings.TrimSpace(msg)))
 }
@@ -267,18 +265,81 @@ func (wb *Wallabot) HandleHelp(m *telebot.Message) {
 	))
 }
 
+func (wb *Wallabot) processNotifications() {
+	for nt := range wb.Notify {
+		// Check if we already sent a notification for this search and item for a lower or same price
+		lowerPriceNotified := false
+		err := wb.db.User(nt.User.ID, func(u *database.User) error {
+			search := u.Searches.Get(nt.Search)
+			if search == nil {
+				return fmt.Errorf("search '%s' not found", nt.Search)
+			}
+
+			notifiedPrice, notified := search.SentItems[nt.Item.ID]
+			if notified && notifiedPrice <= nt.Item.Price {
+				lowerPriceNotified = true
+			}
+			return nil
+		})
+		if err != nil {
+			log.WithFields(log.Fields{
+				"component": "bot",
+			}).Errorf("Error checking previous notifications for '%s': %v", nt.User.Name, err)
+			continue
+		}
+
+		if lowerPriceNotified {
+			log.WithFields(log.Fields{
+				"component": "bot",
+			}).Debugf("Discarding '%s' for '%s' as previously notified", nt.Item.ID, nt.User.Name)
+			continue
+		}
+
+		log.WithFields(log.Fields{
+			"component": "bot",
+		}).Printf("Notifying '%s' about '%s'", nt.User.Name, nt.Item.ID)
+
+		_, err = wb.bot.Send(telebot.ChatID(nt.User.ChatID), nt.Item.Markdown(), &telebot.SendOptions{
+			ParseMode: telebot.ModeMarkdownV2,
+		})
+		if err != nil {
+			log.WithFields(log.Fields{
+				"component": "bot",
+			}).Printf("Error notifying '%s' (chatID %d)", nt.User.Name, nt.User.ChatID)
+			continue
+		}
+
+		err = wb.db.UserUpdate(nt.User.ID, func(u *database.User) error {
+			search := u.Searches.Get(nt.Search)
+			if search == nil {
+				return fmt.Errorf("search '%s' not found", nt.Search)
+			}
+
+			search.SentItems[nt.Item.ID] = nt.Item.Price
+			return nil
+		})
+		if err != nil {
+			log.WithFields(log.Fields{
+				"component": "bot",
+			}).Errorf("internal error updating notification for '%s': %v", nt.Search, err)
+		}
+	}
+}
+
 func (wb *Wallabot) withUser(handler func(message *telebot.Message)) func(message *telebot.Message) {
 	return func(m *telebot.Message) {
 		u := &database.User{
-			ID:     m.Sender.ID,
-			Name:   m.Sender.Username,
-			ChatID: m.Chat.ID,
+			ID:       m.Sender.ID,
+			Name:     m.Sender.Username,
+			ChatID:   m.Chat.ID,
 			Searches: database.SavedSearches{},
 		}
 
 		err := wb.db.AssertUser(u)
 		if err != nil {
-			log.Printf("error asserting user '%d': %v", m.Sender.ID, err)
+			log.WithFields(log.Fields{
+				"component": "bot",
+			}).Errorf("error asserting user '%d': %v", m.Sender.ID, err)
 			return
 		}
 
@@ -288,7 +349,9 @@ func (wb *Wallabot) withUser(handler func(message *telebot.Message)) func(messag
 
 func sendLog(m *telebot.Message, err error) *telebot.Message {
 	if err != nil {
-		log.Printf("error sending message: %v", err)
+		log.WithFields(log.Fields{
+			"component": "bot",
+		}).Errorf("error sending message: %v", err)
 	}
 
 	return m

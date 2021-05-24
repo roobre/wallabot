@@ -12,6 +12,8 @@ type Database struct {
 	bdg *badger.DB
 }
 
+const userKeyPrefix = "user_"
+
 type User struct {
 	ID       int
 	Name     string
@@ -29,9 +31,8 @@ type SavedSearch struct {
 	SentItems SentItems
 }
 
-type SentItems map[ItemID]ItemPrice
-type ItemID string
-type ItemPrice float64
+// SentItems is a map of sent itemIDs and their price
+type SentItems map[string]float64
 
 type Notification struct {
 	User   *User
@@ -74,7 +75,7 @@ func New(path string) (*Database, error) {
 func (db *Database) User(id int, f func(u *User) error) error {
 	idb := userKey(id)
 	return db.bdg.View(func(txn *badger.Txn) error {
-		user, err := db.getUser(idb, txn)
+		user, err := db.getUser(idb, txn.Get)
 		if err != nil {
 			return err
 		}
@@ -90,7 +91,7 @@ func (db *Database) User(id int, f func(u *User) error) error {
 func (db *Database) UserUpdate(id int, f func(u *User) error) error {
 	idb := userKey(id)
 	return db.bdg.Update(func(txn *badger.Txn) error {
-		user, err := db.getUser(idb, txn)
+		user, err := db.getUser(idb, txn.Get)
 		if err != nil {
 			return err
 		}
@@ -104,9 +105,37 @@ func (db *Database) UserUpdate(id int, f func(u *User) error) error {
 	})
 }
 
-func (db *Database) getUser(idb []byte, txn *badger.Txn) (*User, error) {
+func (db *Database) UserEach(f func(u *User) error) error {
+	return db.bdg.View(func(txn *badger.Txn) error {
+		it := txn.NewIterator(badger.IteratorOptions{
+			PrefetchSize:   64,
+			PrefetchValues: true,
+			Prefix:         []byte(userKeyPrefix),
+		})
+		defer it.Close()
+
+		for it.Rewind(); it.Valid(); it.Next() {
+			user, err := db.getUser(nil, func(bytes []byte) (*badger.Item, error) {
+				return it.Item(), nil
+			})
+			if err != nil {
+				return err
+			}
+
+			err = f(user)
+			if err != nil {
+				return fmt.Errorf("user function: %w", err)
+			}
+		}
+
+		return nil
+	})
+}
+
+
+func (db *Database) getUser(idb []byte, getter func([]byte) (*badger.Item, error)) (*User, error) {
 	user := &User{}
-	item, err := txn.Get(idb)
+	item, err := getter(idb)
 	if err != nil {
 		return nil, fmt.Errorf("getting user from DB: %w", err)
 	}
@@ -179,5 +208,5 @@ func (db *Database) AssertUser(u *User) error {
 }
 
 func userKey(id int) []byte {
-	return []byte(fmt.Sprintf("user_%d", id))
+	return []byte(userKeyPrefix + fmt.Sprint(id))
 }
