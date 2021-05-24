@@ -45,7 +45,7 @@ func (c *Client) Search(args SearchArgs) ([]Item, error) {
 		sr := &searchResponse{}
 		err = json.NewDecoder(response.Body).Decode(sr)
 		if err != nil {
-			return items, err
+			return items, fmt.Errorf("decoding http response: %w", err)
 		}
 
 		if len(sr.Items) == 0 {
