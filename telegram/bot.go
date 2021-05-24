@@ -77,6 +77,9 @@ func (wb *Wallabot) withHandlers() *Wallabot {
 	wb.bot.Handle("/list", wb.withUser(wb.HandleSavedSearches))
 	wb.bot.Handle("/new", wb.withUser(wb.HandleNewSearch))
 	wb.bot.Handle("/delete", wb.withUser(wb.HandleDeleteSearch))
+	wb.bot.Handle("/radius", wb.withUser(wb.HandleRadius))
+	wb.bot.Handle("/me", wb.withUser(wb.HandleMe))
+	wb.bot.Handle(telebot.OnLocation, wb.withUser(wb.HandleLocation))
 	wb.bot.Handle(telebot.OnText, wb.HandleHelp)
 
 	_ = wb.bot.SetCommands([]telebot.Command{
@@ -95,6 +98,14 @@ func (wb *Wallabot) withHandlers() *Wallabot {
 		{
 			Text:        "/delete",
 			Description: "Delete a saved search",
+		},
+		{
+			Text:        "/radius",
+			Description: "Show preferred search radius",
+		},
+		{
+			Text:        "/me",
+			Description: "Show info about the current user",
 		},
 	})
 
@@ -254,6 +265,87 @@ func (wb *Wallabot) HandleDeleteSearch(m *telebot.Message) {
 
 	sendLog(wb.bot.Reply(m,
 		fmt.Sprintf("Search `%s` has been deleted", keywords),
+	))
+}
+
+func (wb *Wallabot) HandleLocation(m *telebot.Message) {
+	if m.Location == nil {
+		sendLog(wb.bot.Reply(m,
+			fmt.Sprintf("Your message does not have a valid location"),
+		))
+		return
+	}
+
+	err := wb.db.UserUpdate(m.Sender.ID, func(u *database.User) error {
+		u.Lat = float64(m.Location.Lat)
+		u.Long = float64(m.Location.Lng)
+		return nil
+	})
+	if err != nil {
+		log.WithFields(log.Fields{
+			"component": "bot",
+		}).Errorf("Saving location for %v", err)
+
+		sendLog(wb.bot.Reply(m,
+			fmt.Sprintf("error saving your location: %v", err),
+		))
+		return
+	}
+
+	sendLog(wb.bot.Reply(m,
+		fmt.Sprintf("I've set your location to %.8f,%.8f", m.Location.Lat, m.Location.Lng),
+	))
+}
+
+func (wb *Wallabot) HandleRadius(m *telebot.Message) {
+	radius, err := strconv.Atoi(m.Payload)
+	if err != nil {
+		sendLog(wb.bot.Reply(m,
+			"`Usage: /radius <num kilometers>",
+		))
+		return
+	}
+
+	err = wb.db.UserUpdate(m.Sender.ID, func(u *database.User) error {
+		u.RadiusKm = radius
+		return nil
+	})
+	if err != nil {
+		log.WithFields(log.Fields{
+			"component": "bot",
+		}).Errorf("Saving radius for %v", err)
+
+		sendLog(wb.bot.Reply(m,
+			fmt.Sprintf("error saving your search radius: %v", err),
+		))
+		return
+	}
+
+	sendLog(wb.bot.Reply(m,
+		fmt.Sprintf("I've set your preferred search radius to %d Km", radius),
+	))
+}
+
+func (wb *Wallabot) HandleMe(m *telebot.Message) {
+	var user *database.User
+	err := wb.db.User(m.Sender.ID, func(u *database.User) error {
+		user = u
+		return nil
+	})
+	if err != nil {
+		sendLog(wb.bot.Reply(m,
+			fmt.Sprintf("Could not get your entry from database: %v", err),
+		))
+		return
+	}
+
+	sendLog(wb.bot.Reply(m,
+		fmt.Sprintf("👤: %s\n"+
+			"📍: %.8f, %.8f (+%dKm)\n"+
+			"You can send me your location fo configure it, and use /radius to set your desired search radius",
+			user.Name,
+			user.Lat, user.Long, user.RadiusKm,
+		),
 	))
 }
 

@@ -20,6 +20,7 @@ type User struct {
 	ChatID   int64
 	Lat      float64
 	Long     float64
+	RadiusKm int
 	Searches SavedSearches
 }
 
@@ -131,7 +132,6 @@ func (db *Database) UserEach(f func(u *User) error) error {
 		return nil
 	})
 }
-
 
 func (db *Database) getUser(idb []byte, getter func([]byte) (*badger.Item, error)) (*User, error) {
 	user := &User{}
