@@ -7,6 +7,9 @@ import (
 	wphttp "roob.re/wallabot/wallapop/http"
 )
 
+const nextPageHeader = "X-NextPage"
+const searchPagesDefault = 8
+
 type Client struct {
 	http *wphttp.Client
 }
@@ -18,22 +21,44 @@ func New() *Client {
 }
 
 func (sa SearchArgs) WithDefaults() SearchArgs {
+	if sa.Pages == 0 {
+		sa.Pages = searchPagesDefault
+	}
+
 	return sa
 }
 
 func (c *Client) Search(args SearchArgs) ([]Item, error) {
 	const searchPath = "/general/search"
 
-	response, err := c.http.Request(searchPath, http.MethodGet, args.WithDefaults())
-	if err != nil {
-		return nil, fmt.Errorf("could not make http request: %w", err)
+	args = args.WithDefaults()
+
+	var items []Item
+	var nextPageParams string
+
+	for page := 0; page < args.Pages; page++ {
+		response, err := c.http.Request(searchPath+"?"+nextPageParams, http.MethodGet, args)
+		if err != nil {
+			return nil, fmt.Errorf("could not make http request: %w", err)
+		}
+
+		sr := &searchResponse{}
+		err = json.NewDecoder(response.Body).Decode(sr)
+		if err != nil {
+			return items, err
+		}
+
+		if len(sr.Items) == 0 {
+			break
+		}
+
+		items = append(items, sr.Items...)
+
+		nextPageParams = response.Header.Get(nextPageHeader)
+		if nextPageParams == "" {
+			break
+		}
 	}
 
-	sr := &searchResponse{}
-	err = json.NewDecoder(response.Body).Decode(sr)
-	if err != nil {
-		return nil, err
-	}
-
-	return sr.Items, nil
+	return items, nil
 }

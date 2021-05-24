@@ -22,6 +22,7 @@ type SearchArgs struct {
 	Urgent    bool    `url:"urgent,omitempty"`
 	Shipping  bool    `url:"shipping,omitempty"`
 	Exchange  bool    `url:"exchange,omitempty"`
+	Pages     int     `url:"-"`
 }
 
 type Item struct {

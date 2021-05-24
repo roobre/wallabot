@@ -45,7 +45,7 @@ type Client struct {
 }
 
 func (c *Client) Request(endpoint string, method string, params interface{}) (*http.Response, error) {
-	args, err := query.Values(params)
+	reqArgs, err := query.Values(params)
 	if err != nil {
 		return nil, fmt.Errorf("marshalling url params: %w", err)
 	}
@@ -54,7 +54,12 @@ func (c *Client) Request(endpoint string, method string, params interface{}) (*h
 	if err != nil {
 		return nil, fmt.Errorf("bulding url: %w", err)
 	}
-	u.RawQuery = args.Encode()
+
+	urlArgs := u.Query()
+	for k, v := range reqArgs {
+		urlArgs.Set(k, v[0])
+	}
+	u.RawQuery = urlArgs.Encode()
 
 	req := &http.Request{
 		Method: method,
