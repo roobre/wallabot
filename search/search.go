@@ -83,6 +83,8 @@ func (s *Searcher) consumeBacklog() {
 	for job := range s.backlog {
 		items, err := s.wp.Search(wallapop.SearchArgs{
 			Keywords: job.seach.Keywords,
+			Latitude: job.user.Lat,
+			Longitude: job.user.Long,
 		})
 		if err != nil {
 			log.WithFields(log.Fields{

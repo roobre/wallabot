@@ -129,13 +129,34 @@ func (wb *Wallabot) HandleSearch(m *telebot.Message) {
 		return
 	}
 
+	var user *database.User
+	err := wb.db.User(m.Sender.ID, func(u *database.User) error {
+		user = u
+		return nil
+	})
+	if err != nil {
+		log.WithFields(log.Fields{
+			"component": "bot",
+		}).Errorf("Could not get user '%s' (%d) from database: %v", m.Sender.Username, m.Sender.ID, err)
+
+		sendLog(wb.bot.Reply(m,
+			fmt.Sprintf("Error getting you from the database: %v", err),
+		))
+
+		return
+	}
+
 	results, err := wb.wp.Search(wallapop.SearchArgs{
-		Keywords: keywords,
+		Keywords:  keywords,
+		Latitude:  user.Lat,
+		Longitude: user.Long,
 	})
 	if err != nil {
 		sendLog(wb.bot.Reply(m,
 			fmt.Sprintf("Error processing your search: %v", err),
 		))
+
+		return
 	}
 
 	if len(results) == 0 {
