@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"github.com/google/go-querystring/query"
+	log "github.com/sirupsen/logrus"
 	"net/http"
 	"net/http/cookiejar"
 	"net/url"
@@ -61,6 +62,7 @@ func (c *Client) Request(endpoint string, method string, params interface{}) (*h
 	}
 	u.RawQuery = urlArgs.Encode()
 
+	log.Printf("Requesting %v...", u.String())
 	req := &http.Request{
 		Method: method,
 		URL:    u,
