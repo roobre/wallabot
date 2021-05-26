@@ -146,10 +146,11 @@ func (wb *Wallabot) HandleSearch(m *telebot.Message) {
 		return
 	}
 
+	lat, long := user.Location()
 	results, err := wb.wp.Search(wallapop.SearchArgs{
 		Keywords:  keywords,
-		Latitude:  user.Lat,
-		Longitude: user.Long,
+		Latitude:  lat,
+		Longitude: long,
 	})
 	if err != nil {
 		sendLog(wb.bot.Reply(m,
