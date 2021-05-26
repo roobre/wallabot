@@ -323,7 +323,7 @@ func (wb *Wallabot) HandleRadius(m *telebot.Message) {
 	radius, err := strconv.Atoi(m.Payload)
 	if err != nil {
 		sendLog(wb.bot.Reply(m,
-			"`Usage: /radius <num kilometers>",
+			"`Usage: /radius <num kilometers>`",
 		))
 		return
 	}
