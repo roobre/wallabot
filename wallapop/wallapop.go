@@ -3,12 +3,14 @@ package wallapop
 import (
 	"encoding/json"
 	"fmt"
+	log "github.com/sirupsen/logrus"
 	"net/http"
 	wphttp "roob.re/wallabot/wallapop/http"
 )
 
-const nextPageHeader = "X-NextPage"
 const searchPagesDefault = 8
+
+var errEmptyPage = fmt.Errorf("search results empty")
 
 type Client struct {
 	http *wphttp.Client
@@ -29,42 +31,61 @@ func (sa SearchArgs) WithDefaults() SearchArgs {
 }
 
 func (c *Client) Search(args SearchArgs) ([]Item, error) {
-	const searchPath = "/general/search"
-
 	args = args.WithDefaults()
 
 	var items []Item
-	var nextPageParams string
+
+	var pageItems []Item
+	var pageParams string // Returned by Wallapop API, collection of GET params that can be used to fetch the next page
+	var err error
 
 	for page := 0; page < args.Pages; page++ {
-		url := searchPath + "?" + nextPageParams
-		response, err := c.http.Request(url, http.MethodGet, args)
-		if err != nil {
-			return nil, fmt.Errorf("could not make http request: %w", err)
-		}
-		defer response.Body.Close()
-
-		if response.StatusCode != 200 {
-			return nil, fmt.Errorf("server responded with %d to %s", response.StatusCode, url)
+		pageItems, pageParams, err = c.searchPage(args, pageParams)
+		if err != nil && err != errEmptyPage {
+			return items, err
 		}
 
-		sr := &searchResponse{}
-		err = json.NewDecoder(response.Body).Decode(sr)
-		if err != nil {
-			return items, fmt.Errorf("decoding http response: %w", err)
-		}
+		items = append(items, pageItems...)
 
-		if len(sr.Items) == 0 {
-			break
-		}
-
-		items = append(items, sr.Items...)
-
-		nextPageParams = response.Header.Get(nextPageHeader)
-		if nextPageParams == "" {
+		if err == errEmptyPage {
 			break
 		}
 	}
 
 	return items, nil
+}
+
+func (c *Client) searchPage(args SearchArgs, pageParams string) ([]Item, string, error) {
+	const searchPath = "/general/search"
+	const nextPageHeader = "X-NextPage"
+
+	url := searchPath + "?" + pageParams
+	response, err := c.http.Request(url, http.MethodGet, args)
+	if err != nil {
+		return nil, "", fmt.Errorf("could not make http request: %w", err)
+	}
+	defer func() {
+		err := response.Body.Close()
+		if err != nil {
+			log.Warnf("error closing body: %v", err)
+		}
+	}()
+
+	if response.StatusCode != 200 {
+		return nil, "", fmt.Errorf("server responded with %d to %s", response.StatusCode, url)
+	}
+
+	sr := &searchResponse{}
+	err = json.NewDecoder(response.Body).Decode(sr)
+	if err != nil {
+		return nil, "", fmt.Errorf("decoding http response: %w", err)
+	}
+
+	if len(sr.Items) == 0 {
+		return nil, "", errEmptyPage
+	}
+
+	pageParams = response.Header.Get(nextPageHeader)
+
+	return sr.Items, pageParams, nil
 }
