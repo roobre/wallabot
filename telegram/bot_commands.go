@@ -308,9 +308,15 @@ func (wb *Wallabot) HandleMe(m *telebot.Message) {
 		return
 	}
 
+	var vipMessage string
+	if wb.userIsVIP(m.Sender.Username) {
+		vipMessage = "🥇 You are a VIP user\n"
+	}
+
 	sendLog(wb.bot.Reply(m,
 		fmt.Sprintf("👤: %s\n"+
 			"📍: %.8f, %.8f (+%dKm)\n"+
+			vipMessage +
 			"You can send me your location fo configure it, and use /radius to set your desired search radius",
 			user.Name,
 			user.Lat, user.Long, user.RadiusKm,
