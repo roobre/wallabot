@@ -1,5 +1,5 @@
-# Wall-a-bot
+# Wallabot
 
-Make periodic, filtered requests to Wallapop (spanish second hand market) and echo them back to a Telegram chat.
+Wallabot is a Telegram bot to make and monitor wallapop searches.
 
-90min project.
+It features an asynchronous, message-based, and object-oriented architecture. 
