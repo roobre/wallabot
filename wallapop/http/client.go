@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"github.com/google/go-querystring/query"
+	"github.com/sethgrid/pester"
 	log "github.com/sirupsen/logrus"
 	"net/http"
 	"net/http/cookiejar"
@@ -29,20 +30,21 @@ func New() *Client {
 		panic(fmt.Errorf("creating cookie jar: %w", err))
 	}
 
+	pt := pester.New()
+	pt.MaxRetries = 3
+	pt.Backoff = pester.ExponentialJitterBackoff
+	pt.Timeout = 7 * time.Second
+	pt.Jar = jar
+
 	return &Client{
-		HttpClient: &http.Client{
-			Transport:     http.DefaultTransport,
-			CheckRedirect: nil,
-			Jar:           jar,
-			Timeout:       5 * time.Second,
-		},
-		Key: defaultKey,
+		client: pt,
+		Key:    defaultKey,
 	}
 }
 
 type Client struct {
-	HttpClient *http.Client
-	Key        string
+	client *pester.Client
+	Key    string
 }
 
 func (c *Client) Request(endpoint string, method string, params interface{}) (*http.Response, error) {
@@ -75,7 +77,7 @@ func (c *Client) Request(endpoint string, method string, params interface{}) (*h
 		return nil, fmt.Errorf("signing request: %w", err)
 	}
 
-	return c.HttpClient.Do(req)
+	return c.client.Do(req)
 }
 
 func (c *Client) addStandardHeaders(req *http.Request) {
