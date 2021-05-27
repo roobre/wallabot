@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"roob.re/wallabot/database"
 	"roob.re/wallabot/wallapop"
+	"strings"
 	"time"
 )
 
@@ -232,7 +233,7 @@ func (wb *Wallabot) withUser(handler func(message *telebot.Message)) func(messag
 
 func (wb *Wallabot) userIsVIP(username string) bool {
 	for _, u := range wb.c.VIPUsers {
-		if u == username {
+		if strings.ToLower(u) == strings.ToLower(username) {
 			return true
 		}
 	}
