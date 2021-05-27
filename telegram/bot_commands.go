@@ -105,16 +105,24 @@ func (wb *Wallabot) HandleNewSearch(m *telebot.Message) {
 	}
 
 	err = wb.db.UserUpdate(m.Sender.ID, func(u *database.User) error {
+		if (!wb.userIsVIP(m.Sender.Username) && len(u.Searches) >= 5) ||
+			len(u.Searches) >= 15 {
+			return fmt.Errorf("you have reached the maximum number of searches")
+		}
+
 		u.Searches.Set(&database.SavedSearch{
 			Keywords: keywords,
 			MaxPrice: math.Round(maxPrice),
 		})
+
 		return nil
 	})
 	if err != nil {
 		sendLog(wb.bot.Reply(m,
-			fmt.Sprintf("error creating search: %v", err),
+			fmt.Sprintf("error creating saved search: %v", err),
 		))
+
+		return
 	}
 
 	sendLog(wb.bot.Reply(m,
@@ -287,7 +295,6 @@ func (wb *Wallabot) HandleRadius(m *telebot.Message) {
 	))
 }
 
-
 func (wb *Wallabot) HandleMe(m *telebot.Message) {
 	var user *database.User
 	err := wb.db.User(m.Sender.ID, func(u *database.User) error {
@@ -318,14 +325,14 @@ func (wb *Wallabot) HandleHelp(m *telebot.Message) {
 	}
 
 	sendLog(wb.bot.Reply(m,
-		"Oopsie woopsie, I did not get that command :(\n" +
-		"I currently support the following ones:\n\n" +
-		supportedStr +
-		"\nAdditionally you can send me a location directly to easily update your preferred location",
+		"Oopsie woopsie, I did not get that command :(\n"+
+			"I currently support the following ones:\n\n"+
+			supportedStr+
+			"\nAdditionally you can send me a location directly to easily update your preferred location",
 	))
 }
 
 func (wb *Wallabot) HandleStart(m *telebot.Message) {
-	sendLog(wb.bot.Reply(m, "Welcome! I'm a bot that can help you to search and monitor items in Wallapop.\n" +
+	sendLog(wb.bot.Reply(m, "Welcome! I'm a bot that can help you to search and monitor items in Wallapop.\n"+
 		"Want to know what I can do? Throw me a /help command!"))
 }
