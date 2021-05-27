@@ -102,6 +102,11 @@ func NewWallabot(token string, db *database.Database, wp *wallapop.Client, c Wal
 			handler:     wb.withUser(wb.HandleRadius),
 		},
 		{
+			command:     "/location",
+			description: "Show preferred location, manually",
+			handler:     wb.withUser(wb.HandleLocationText),
+		},
+		{
 			command:     "/me",
 			description: "Show info about the current user",
 			handler:     wb.withUser(wb.HandleMe),

@@ -212,6 +212,52 @@ func (wb *Wallabot) HandleLocation(m *telebot.Message) {
 	))
 }
 
+func (wb *Wallabot) HandleLocationText(m *telebot.Message) {
+	latLongTxt := strings.Split(m.Payload, ",")
+	if len(latLongTxt) != 2 {
+		sendLog(wb.bot.Reply(m,
+			fmt.Sprintf("`Usage: /location <latitude,longitude>`\n`Example: /location 41.383333,2.183333`"),
+		))
+		return
+	}
+
+	lat, err := strconv.ParseFloat(latLongTxt[0], 64)
+	if err != nil {
+		sendLog(wb.bot.Reply(m,
+			fmt.Sprintf("I couldn't parse '%s' as a latitude", latLongTxt[0]),
+		))
+		return
+	}
+
+	long, err := strconv.ParseFloat(latLongTxt[1], 64)
+	if err != nil {
+		sendLog(wb.bot.Reply(m,
+			fmt.Sprintf("I couldn't parse '%s' as a longitude", latLongTxt[1]),
+		))
+		return
+	}
+
+	err = wb.db.UserUpdate(m.Sender.ID, func(u *database.User) error {
+		u.Lat = lat
+		u.Long = long
+		return nil
+	})
+	if err != nil {
+		log.WithFields(log.Fields{
+			"component": "bot",
+		}).Errorf("Saving location ('%s') for user %d: %v", m.Payload, m.Sender.ID, err)
+
+		sendLog(wb.bot.Reply(m,
+			fmt.Sprintf("error saving your location: %v", err),
+		))
+		return
+	}
+
+	sendLog(wb.bot.Reply(m,
+		fmt.Sprintf("I've set your location to [%f, %f]", lat, long),
+	))
+}
+
 func (wb *Wallabot) HandleRadius(m *telebot.Message) {
 	radius, err := strconv.Atoi(m.Payload)
 	if err != nil {
@@ -240,6 +286,7 @@ func (wb *Wallabot) HandleRadius(m *telebot.Message) {
 		fmt.Sprintf("I've set your preferred search radius to %d Km", radius),
 	))
 }
+
 
 func (wb *Wallabot) HandleMe(m *telebot.Message) {
 	var user *database.User
