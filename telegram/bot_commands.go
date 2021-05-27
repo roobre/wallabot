@@ -312,6 +312,15 @@ func (wb *Wallabot) HandleMe(m *telebot.Message) {
 }
 
 func (wb *Wallabot) HandleHelp(m *telebot.Message) {
-	sendLog(wb.bot.Reply(m, "Oopsie woopsie, I did not get that command :("))
-}
+	supportedStr := ""
+	for _, cmd := range wb.commands {
+		supportedStr += fmt.Sprintf("%s\n`  `%s\n", cmd.command, cmd.description)
+	}
 
+	sendLog(wb.bot.Reply(m,
+		"Oopsie woopsie, I did not get that command :(\n" +
+		"I currently support the following ones:\n\n" +
+		supportedStr +
+		"\nAdditionally you can send me a location directly to easily update your preferred location",
+	))
+}
