@@ -314,8 +314,8 @@ func (wb *Wallabot) HandleMe(m *telebot.Message) {
 	}
 
 	sendLog(wb.bot.Reply(m,
-		fmt.Sprintf("👤: %s\n"+
-			"📍: %.8f, %.8f (+%dKm)\n"+
+		fmt.Sprintf("👤 %s\n"+
+			"📍 %.8f, %.8f (+%dKm)\n"+
 			vipMessage +
 			"You can send me your location fo configure it, and use /radius to set your desired search radius",
 			user.Name,
