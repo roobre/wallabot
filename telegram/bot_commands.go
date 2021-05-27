@@ -324,3 +324,8 @@ func (wb *Wallabot) HandleHelp(m *telebot.Message) {
 		"\nAdditionally you can send me a location directly to easily update your preferred location",
 	))
 }
+
+func (wb *Wallabot) HandleStart(m *telebot.Message) {
+	sendLog(wb.bot.Reply(m, "Welcome! I'm a bot that can help you to search and monitor items in Wallapop.\n" +
+		"Want to know what I can do? Throw me a /help command!"))
+}

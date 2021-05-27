@@ -77,9 +77,14 @@ func NewWallabot(token string, db *database.Database, wp *wallapop.Client, c Wal
 
 	wb.commands = []commandEntry{
 		{
+			command:     "/start",
+			description: "Show the welcome message",
+			handler:     wb.HandleStart,
+		},
+		{
 			command:     "/search",
 			description: "Immediately search for items",
-			handler:     wb.withUser(wb.HandleSearch),
+			handler:     wb.HandleSearch,
 		},
 		{
 			command:     "/list",
