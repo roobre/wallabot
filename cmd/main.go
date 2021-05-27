@@ -7,10 +7,12 @@ import (
 	"roob.re/wallabot"
 	"roob.re/wallabot/telegram"
 	"strconv"
+	"strings"
 )
 
 func main() {
 	token := flag.String("token", os.Getenv("WB_TOKEN"), "Telegram bot token")
+	vipUsers := flag.String("vips", os.Getenv("WB_VIPS"), "Comma-separated list of VIP usernames")
 	dbpath := flag.String("dbpath", func() string {
 		env := os.Getenv("WB_DBPATH")
 		if env == "" {
@@ -24,11 +26,20 @@ func main() {
 	}(), "Be verbose")
 	flag.Parse()
 
+	var vipUserList []string
+	for _, vip := range strings.Split(*vipUsers, ",") {
+		vip = strings.TrimSpace(vip)
+		if len(vip) > 0 {
+			vipUserList = append(vipUserList, vip)
+		}
+	}
+
 	wb, err := wallabot.New(wallabot.Config{
-		DBPath:         *dbpath,
-		Token:          *token,
+		DBPath: *dbpath,
+		Token:  *token,
 		WallabotConfig: telegram.WallabotConfig{
 			Verbose: *verbose,
+			VIPUsers: vipUserList,
 		},
 	})
 

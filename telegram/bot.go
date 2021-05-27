@@ -26,6 +26,7 @@ type WallabotConfig struct {
 	Verbose     bool
 	Timeout     time.Duration
 	QueueLength int
+	VIPUsers    []string
 }
 
 type commandEntry struct {
@@ -227,6 +228,16 @@ func (wb *Wallabot) withUser(handler func(message *telebot.Message)) func(messag
 
 		handler(m)
 	}
+}
+
+func (wb *Wallabot) userIsVIP(username string) bool {
+	for _, u := range wb.c.VIPUsers {
+		if u == username {
+			return true
+		}
+	}
+
+	return false
 }
 
 func sendLog(m *telebot.Message, err error) *telebot.Message {
