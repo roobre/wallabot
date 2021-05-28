@@ -53,6 +53,8 @@ func NewWallabot(token string, db *database.Database, wp *wallapop.Client, c Wal
 		return nil, errors.New("token must not be empty")
 	}
 
+	c = c.WithDefaults()
+
 	bot, err := telebot.NewBot(telebot.Settings{
 		Token:     token,
 		Verbose:   c.Verbose,
@@ -73,7 +75,7 @@ func NewWallabot(token string, db *database.Database, wp *wallapop.Client, c Wal
 		bot:    bot,
 		wp:     wp,
 		db:     db,
-		c:      c.WithDefaults(),
+		c:      c,
 		Notify: make(chan database.Notification, c.QueueLength),
 	}
 
