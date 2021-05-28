@@ -6,6 +6,8 @@ import (
 	log "github.com/sirupsen/logrus"
 	"net/http"
 	"roob.re/wallabot/database"
+	"roob.re/wallabot/search"
+	"roob.re/wallabot/telegram"
 	"time"
 )
 
@@ -24,7 +26,18 @@ func New() *Reporter {
 	}
 }
 
-func (r *Reporter) WatchDBMetrics(db *database.Database) {
+func (r *Reporter) ListenAndServe(address string) error {
+	promHandler := promhttp.HandlerFor(r.registry, promhttp.HandlerOpts{})
+	return http.ListenAndServe(address, promHandler)
+}
+
+func (r *Reporter) Watch(db *database.Database, bot *telegram.Wallabot, se *search.Searcher) {
+	r.watchDBMetrics(db)
+	r.watchTelegramMetrics(bot)
+	r.watchBacklogMetrics(se)
+}
+
+func (r *Reporter) watchDBMetrics(db *database.Database) {
 	go func() {
 		usersMetric := prometheus.NewGauge(prometheus.GaugeOpts{
 			Name: "users",
@@ -69,7 +82,40 @@ func (r *Reporter) WatchDBMetrics(db *database.Database) {
 	}()
 }
 
-func (r *Reporter) ListenAndServe(address string) error {
-	promHandler := promhttp.HandlerFor(r.registry, promhttp.HandlerOpts{})
-	return http.ListenAndServe(address, promHandler)
+func (r *Reporter) watchTelegramMetrics(bot *telegram.Wallabot) {
+	go func() {
+		tgNotificationOffset := prometheus.NewGauge(prometheus.GaugeOpts{
+			Name: "telegram_offset",
+		})
+		_ = r.registry.Register(tgNotificationOffset)
+
+		for {
+			tgNotificationOffset.Set(float64(len(bot.Notify)))
+
+			time.Sleep(r.Interval / 4)
+		}
+	}()
+}
+
+func (r *Reporter) watchBacklogMetrics(searcher *search.Searcher) {
+	go func() {
+		searchBacklogOffset := prometheus.NewGauge(prometheus.GaugeOpts{
+			Name: "searches_offset",
+		})
+		_ = r.registry.Register(searchBacklogOffset)
+
+		searchBacklogCapacity := prometheus.NewGauge(prometheus.GaugeOpts{
+			Name: "searches_capacity",
+		})
+		_ = r.registry.Register(searchBacklogOffset)
+
+		for {
+			l, c := searcher.BacklogStats()
+
+			searchBacklogOffset.Set(float64(l))
+			searchBacklogCapacity.Set(float64(c))
+
+			time.Sleep(r.Interval / 4)
+		}
+	}()
 }

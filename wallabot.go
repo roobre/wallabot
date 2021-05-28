@@ -63,7 +63,7 @@ func (w *Wallabot) Start() error {
 	}()
 
 	go func() {
-		w.re.WatchDBMetrics(w.db)
+		w.re.Watch(w.db, w.tg, w.se)
 		eChan <- w.re.ListenAndServe(w.c.MetricsListenAddress)
 	}()
 
