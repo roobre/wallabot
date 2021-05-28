@@ -120,7 +120,7 @@ func (r *Reporter) watchBacklogMetrics(searcher *search.Searcher) {
 			Name: "searches_capacity",
 			Help: "Number searches that can be queued before stalling",
 		})
-		_ = r.registry.Register(searchBacklogOffset)
+		_ = r.registry.Register(searchBacklogCapacity)
 
 		for {
 			l, c := searcher.BacklogStats()
