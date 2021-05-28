@@ -93,8 +93,15 @@ func (r *Reporter) watchTelegramMetrics(bot *telegram.Wallabot) {
 		})
 		_ = r.registry.Register(tgNotificationOffset)
 
+		tgNotificationCapacity := prometheus.NewGauge(prometheus.GaugeOpts{
+			Name: "telegram_capacity",
+			Help: "Number notifications that can be queued before stalling",
+		})
+		_ = r.registry.Register(tgNotificationCapacity)
+
 		for {
 			tgNotificationOffset.Set(float64(len(bot.Notify)))
+			tgNotificationCapacity.Set(float64(cap(bot.Notify)))
 
 			time.Sleep(r.Interval / 4)
 		}
