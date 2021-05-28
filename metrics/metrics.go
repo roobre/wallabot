@@ -41,16 +41,19 @@ func (r *Reporter) watchDBMetrics(db *database.Database) {
 	go func() {
 		usersMetric := prometheus.NewGauge(prometheus.GaugeOpts{
 			Name: "users",
+			Help: "Number of users in the database",
 		})
 		_ = r.registry.Register(usersMetric)
 
 		searchesMetric := prometheus.NewGauge(prometheus.GaugeOpts{
 			Name: "searches",
+			Help: "Number of searches in the database, for all users",
 		})
 		_ = r.registry.Register(searchesMetric)
 
 		notificationsMetric := prometheus.NewGauge(prometheus.GaugeOpts{
 			Name: "notifications",
+			Help: "Number of notifications sent, for all users",
 		})
 		_ = r.registry.Register(notificationsMetric)
 
@@ -86,6 +89,7 @@ func (r *Reporter) watchTelegramMetrics(bot *telegram.Wallabot) {
 	go func() {
 		tgNotificationOffset := prometheus.NewGauge(prometheus.GaugeOpts{
 			Name: "telegram_offset",
+			Help: "Number notifications pending to be sent to Telegram",
 		})
 		_ = r.registry.Register(tgNotificationOffset)
 
@@ -101,11 +105,13 @@ func (r *Reporter) watchBacklogMetrics(searcher *search.Searcher) {
 	go func() {
 		searchBacklogOffset := prometheus.NewGauge(prometheus.GaugeOpts{
 			Name: "searches_offset",
+			Help: "Number searches pending in the backlog",
 		})
 		_ = r.registry.Register(searchBacklogOffset)
 
 		searchBacklogCapacity := prometheus.NewGauge(prometheus.GaugeOpts{
 			Name: "searches_capacity",
+			Help: "Number searches that can be queued before stalling",
 		})
 		_ = r.registry.Register(searchBacklogOffset)
 
