@@ -3,33 +3,41 @@ package wallabot
 import (
 	"fmt"
 	"roob.re/wallabot/database"
+	"roob.re/wallabot/metrics"
 	"roob.re/wallabot/search"
 	"roob.re/wallabot/telegram"
 	"roob.re/wallabot/wallapop"
-	"sync"
 )
 
 type Wallabot struct {
+	c Config
+
 	db *database.Database
 	tg *telegram.Wallabot
 	wp *wallapop.Client
 	se *search.Searcher
+	re *metrics.Reporter
 }
 
 type Config struct {
-	DBPath string
-	Token string
+	DBPath               string
+	Token                string
+	MetricsListenAddress string
 	telegram.WallabotConfig
 }
 
 func New(c Config) (*Wallabot, error) {
-	w := &Wallabot{}
+	w := &Wallabot{
+		c: c,
+	}
 	var err error
 
 	w.db, err = database.New(c.DBPath)
 	if err != nil {
 		return nil, fmt.Errorf("creating db: %w", err)
 	}
+
+	w.re = metrics.New()
 
 	w.wp = wallapop.New()
 
@@ -44,17 +52,20 @@ func New(c Config) (*Wallabot, error) {
 }
 
 func (w *Wallabot) Start() error {
-	wg := &sync.WaitGroup{}
-	wg.Add(2)
+	eChan := make(chan error)
+
 	go func() {
-		_ = w.tg.Start()
-		wg.Done()
-	}()
-	go func() {
-		w.se.Start()
-		wg.Done()
+		eChan <- w.tg.Start()
 	}()
 
-	wg.Wait()
-	return nil
+	go func() {
+		w.se.Start()
+	}()
+
+	go func() {
+		w.re.Watch(w.db, w.tg, w.se)
+		eChan <- w.re.ListenAndServe(w.c.MetricsListenAddress)
+	}()
+
+	return <- eChan
 }

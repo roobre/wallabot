@@ -114,3 +114,7 @@ func (s *Searcher) consumeBacklog() {
 		time.Sleep(time.Duration(10000+rand.Intn(5000)) * time.Millisecond)
 	}
 }
+
+func (s *Searcher) BacklogStats() (int, int) {
+	return len(s.backlog), cap(s.backlog)
+}

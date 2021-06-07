@@ -12,6 +12,7 @@ import (
 
 func main() {
 	token := flag.String("token", os.Getenv("WB_TOKEN"), "Telegram bot token")
+	metricsAddr := flag.String("metrics-addr", os.Getenv("WB_METRICS_ADDR"), "Listen address for metrics server")
 	vipUsers := flag.String("vips", os.Getenv("WB_VIPS"), "Comma-separated list of VIP usernames")
 	dbpath := flag.String("dbpath", func() string {
 		env := os.Getenv("WB_DBPATH")
@@ -37,6 +38,7 @@ func main() {
 	wb, err := wallabot.New(wallabot.Config{
 		DBPath: *dbpath,
 		Token:  *token,
+		MetricsListenAddress: *metricsAddr,
 		WallabotConfig: telegram.WallabotConfig{
 			Verbose: *verbose,
 			VIPUsers: vipUserList,
