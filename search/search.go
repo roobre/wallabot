@@ -9,7 +9,7 @@ import (
 )
 
 const batchSearchInterval = 30 * time.Minute
-const workers = 3
+const workers = 2
 
 type Searcher struct {
 	db       *database.Database
