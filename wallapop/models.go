@@ -15,6 +15,7 @@ type searchResponse struct {
 
 type SearchArgs struct {
 	Keywords  string  `url:"keywords"`
+	RadiusM   int     `url:"distance,omitempty"`
 	Latitude  float64 `url:"latitude,omitempty"`
 	Longitude float64 `url:"longitude,omitempty"`
 	OrderBy   string  `url:"order_by,omitempty"`

@@ -42,6 +42,7 @@ func (wb *Wallabot) HandleSearch(m *telebot.Message) {
 	lat, long := user.Location()
 	results, err := wb.wp.Search(wallapop.SearchArgs{
 		Keywords:  keywords,
+		RadiusM:   user.RadiusKm * 1000,
 		Latitude:  lat,
 		Longitude: long,
 	})
@@ -316,7 +317,7 @@ func (wb *Wallabot) HandleMe(m *telebot.Message) {
 	sendLog(wb.bot.Reply(m,
 		fmt.Sprintf("👤 %s\n"+
 			"📍 %.8f, %.8f (+%dKm)\n"+
-			vipMessage +
+			vipMessage+
 			"You can send me your location fo configure it, and use /radius to set your desired search radius",
 			user.Name,
 			user.Lat, user.Long, user.RadiusKm,
