@@ -40,19 +40,19 @@ func (r *Reporter) Watch(db *database.Database, bot *telegram.Wallabot, se *sear
 func (r *Reporter) watchDBMetrics(db *database.Database) {
 	go func() {
 		usersMetric := prometheus.NewGauge(prometheus.GaugeOpts{
-			Name: "users",
+			Name: "wallabot_users",
 			Help: "Number of users in the database",
 		})
 		_ = r.registry.Register(usersMetric)
 
 		searchesMetric := prometheus.NewGauge(prometheus.GaugeOpts{
-			Name: "searches",
+			Name: "wallabot_searches",
 			Help: "Number of searches in the database, for all users",
 		})
 		_ = r.registry.Register(searchesMetric)
 
 		notificationsMetric := prometheus.NewGauge(prometheus.GaugeOpts{
-			Name: "notifications",
+			Name: "wallabot_notifications",
 			Help: "Number of notifications sent, for all users",
 		})
 		_ = r.registry.Register(notificationsMetric)
@@ -88,13 +88,13 @@ func (r *Reporter) watchDBMetrics(db *database.Database) {
 func (r *Reporter) watchTelegramMetrics(bot *telegram.Wallabot) {
 	go func() {
 		tgNotificationOffset := prometheus.NewGauge(prometheus.GaugeOpts{
-			Name: "telegram_offset",
+			Name: "wallabot_telegram_offset",
 			Help: "Number notifications pending to be sent to Telegram",
 		})
 		_ = r.registry.Register(tgNotificationOffset)
 
 		tgNotificationCapacity := prometheus.NewGauge(prometheus.GaugeOpts{
-			Name: "telegram_capacity",
+			Name: "wallabot_telegram_capacity",
 			Help: "Number notifications that can be queued before stalling",
 		})
 		_ = r.registry.Register(tgNotificationCapacity)
@@ -111,13 +111,13 @@ func (r *Reporter) watchTelegramMetrics(bot *telegram.Wallabot) {
 func (r *Reporter) watchBacklogMetrics(searcher *search.Searcher) {
 	go func() {
 		searchBacklogOffset := prometheus.NewGauge(prometheus.GaugeOpts{
-			Name: "searches_offset",
+			Name: "wallabot_searches_offset",
 			Help: "Number searches pending in the backlog",
 		})
 		_ = r.registry.Register(searchBacklogOffset)
 
 		searchBacklogCapacity := prometheus.NewGauge(prometheus.GaugeOpts{
-			Name: "searches_capacity",
+			Name: "wallabot_searches_capacity",
 			Help: "Number searches that can be queued before stalling",
 		})
 		_ = r.registry.Register(searchBacklogCapacity)
