@@ -35,14 +35,8 @@ type SavedSearch struct {
 	SentItems SentItems
 }
 
-// SentItems is a map of sent itemIDs and their price
+// SentItems is a map of sent itemIDs and their price when they were sent the last time
 type SentItems map[string]float64
-
-type Notification struct {
-	User   *User
-	Item   *wallapop.Item
-	Search string
-}
 
 func (ss SavedSearches) Get(keywords string) *SavedSearch {
 	return ss[keywords]
@@ -63,4 +57,11 @@ func (ss SavedSearches) Delete(keywords string) bool {
 	}
 
 	return found
+}
+
+// Notification models a matching result for a search, which the user should be notified about
+type Notification struct {
+	User   *User
+	Item   *wallapop.Item
+	Search string
 }
