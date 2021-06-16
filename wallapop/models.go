@@ -58,11 +58,11 @@ func replaceCurrency(source string) string {
 func (i *Item) Markdown() string {
 	const wpLinkBase = "https://es.wallapop.com/item"
 	return fmt.Sprintf(
-		"*%d%s*\n"+
-			"*%s*\n"+
+		"*%s*\n"+
+			"*%d%s*\n"+
 			//"%.80s\\.\\.\\.\n"+
 			"%s/%s",
-		int(i.Price), replaceCurrency(i.Currency), markdownEscape(i.Title),
+		markdownEscape(i.Title), int(i.Price), replaceCurrency(i.Currency),
 		//markdownEscape(i.Description),
 		markdownEscape(wpLinkBase), markdownEscape(i.Slug),
 	)
