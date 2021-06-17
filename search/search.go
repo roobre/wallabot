@@ -2,6 +2,7 @@ package search
 
 import (
 	log "github.com/sirupsen/logrus"
+	"math"
 	"math/rand"
 	"roob.re/wallabot/database"
 	"roob.re/wallabot/wallapop"
@@ -81,12 +82,21 @@ func (s *Searcher) fillBacklog() {
 
 func (s *Searcher) consumeBacklog() {
 	for job := range s.backlog {
+		// Get search radius, and user radius as a fallback
+		radiusKm := job.seach.RadiusKm
+		if radiusKm == 0 {
+			radiusKm = job.user.RadiusKm
+		}
+
 		lat, long := job.user.Location()
+
 		items, err := s.wp.Search(wallapop.SearchArgs{
 			Keywords:  job.seach.Keywords,
-			RadiusM:   job.user.RadiusKm * 1000,
+			RadiusM:   radiusKm * 1000,
 			Latitude:  lat,
 			Longitude: long,
+			MinPrice:  int(math.Round(job.seach.MinPrice)),
+			MaxPrice:  int(math.Round(job.seach.MaxPrice)),
 		})
 		if err != nil {
 			log.WithFields(log.Fields{

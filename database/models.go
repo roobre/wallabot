@@ -31,6 +31,9 @@ type SavedSearches map[string]*SavedSearch
 
 type SavedSearch struct {
 	Keywords  string
+	Disabled  bool
+	RadiusKm  int
+	MinPrice  float64
 	MaxPrice  float64
 	SentItems SentItems
 }

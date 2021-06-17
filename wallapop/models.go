@@ -15,6 +15,8 @@ type searchResponse struct {
 
 type SearchArgs struct {
 	Keywords  string  `url:"keywords"`
+	MinPrice  int     `url:"min_sale_price,omitempty"`
+	MaxPrice  int     `url:"max_sale_price,omitempty"`
 	RadiusM   int     `url:"distance,omitempty"`
 	Latitude  float64 `url:"latitude,omitempty"`
 	Longitude float64 `url:"longitude,omitempty"`
