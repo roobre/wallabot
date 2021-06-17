@@ -155,10 +155,15 @@ func (wb *Wallabot) processNotifications() {
 	for nt := range wb.Notify {
 		// Check if we already sent a notification for this search and item for a lower or same price
 		lowerPriceNotified := false
+		shouldNotify := true
 		err := wb.db.User(nt.User.ID, func(u *database.User) error {
 			search := u.Searches.Get(nt.Search)
 			if search == nil {
 				return fmt.Errorf("search '%s' not found", nt.Search)
+			}
+
+			if search.Muted {
+				shouldNotify = false
 			}
 
 			notifiedPrice, notified := search.SentItems[nt.Item.ID]
@@ -181,18 +186,20 @@ func (wb *Wallabot) processNotifications() {
 			continue
 		}
 
-		log.WithFields(log.Fields{
-			"component": "bot",
-		}).Printf("Notifying '%s' about '%s'", nt.User.Name, nt.Item.ID)
-
-		_, err = wb.bot.Send(telebot.ChatID(nt.User.ChatID), nt.Item.Markdown(), &telebot.SendOptions{
-			ParseMode: telebot.ModeMarkdownV2,
-		})
-		if err != nil {
+		if shouldNotify {
 			log.WithFields(log.Fields{
 				"component": "bot",
-			}).Printf("Error notifying '%s' (chatID %d)", nt.User.Name, nt.User.ChatID)
-			continue
+			}).Printf("Notifying '%s' about '%s'", nt.User.Name, nt.Item.ID)
+
+			_, err = wb.bot.Send(telebot.ChatID(nt.User.ChatID), nt.Item.Markdown(), &telebot.SendOptions{
+				ParseMode: telebot.ModeMarkdownV2,
+			})
+			if err != nil {
+				log.WithFields(log.Fields{
+					"component": "bot",
+				}).Printf("Error notifying '%s' (chatID %d)", nt.User.Name, nt.User.ChatID)
+				continue
+			}
 		}
 
 		err = wb.db.UserUpdate(nt.User.ID, func(u *database.User) error {
