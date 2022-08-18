@@ -9,22 +9,29 @@ import (
 	log "github.com/sirupsen/logrus"
 	"gopkg.in/tucnak/telebot.v2"
 	"roob.re/wallabot/database"
-	"roob.re/wallabot/wallapop"
+	searchcmd "roob.re/wallabot/telegram/search"
 )
 
 func (wb *Wallabot) HandleSearch(m *telebot.Message) {
 	const maxResults = 10
 
-	keywords := strings.TrimSpace(m.Payload)
-	if len(keywords) == 0 {
+	search, err := searchcmd.New(m.Payload)
+	if err != nil {
 		sendLog(wb.bot.Reply(m,
-			fmt.Sprintf("`Usage: %s [keywords...]`", "/search"),
+			fmt.Sprintf("Error %v", err),
+		))
+		return
+	}
+
+	if search.Keywords == "" || search.Price == 0 {
+		sendLog(wb.bot.Reply(m,
+			fmt.Sprintf("`Usage: %s <price=100> [radius=100] [strict=true] search string...`", "/search"),
 		))
 		return
 	}
 
 	var user *database.User
-	err := wb.db.User(m.Sender.ID, func(u *database.User) error {
+	err = wb.db.User(m.Sender.ID, func(u *database.User) error {
 		user = u
 		return nil
 	})
@@ -41,12 +48,15 @@ func (wb *Wallabot) HandleSearch(m *telebot.Message) {
 	}
 
 	lat, long := user.Location()
-	results, err := wb.wp.Search(wallapop.SearchArgs{
-		Keywords:  keywords,
-		RadiusM:   user.RadiusKm * 1000,
-		Latitude:  lat,
-		Longitude: long,
-	})
+
+	args := search.Args()
+	args.Latitude = lat
+	args.Longitude = long
+	if args.RadiusM == 0 {
+		args.RadiusM = user.RadiusKm * 1000
+	}
+
+	results, err := wb.wp.Search(args)
 	if err != nil {
 		sendLog(wb.bot.Reply(m,
 			fmt.Sprintf("Error processing your search: %v", err),
@@ -57,7 +67,7 @@ func (wb *Wallabot) HandleSearch(m *telebot.Message) {
 
 	if len(results) == 0 {
 		sendLog(wb.bot.Reply(m,
-			fmt.Sprintf("Could not find any results for '%s'", keywords),
+			fmt.Sprintf("Could not find any results for '%s'", search),
 		))
 
 		return
