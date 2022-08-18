@@ -36,11 +36,11 @@ func main() {
 	}
 
 	wb, err := wallabot.New(wallabot.Config{
-		DBPath: *dbpath,
-		Token:  *token,
+		DBPath:               *dbpath,
+		Token:                *token,
 		MetricsListenAddress: *metricsAddr,
 		WallabotConfig: telegram.WallabotConfig{
-			Verbose: *verbose,
+			Verbose:  *verbose,
 			VIPUsers: vipUserList,
 		},
 	})

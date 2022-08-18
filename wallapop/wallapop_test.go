@@ -1,8 +1,9 @@
 package wallapop_test
 
 import (
-	"roob.re/wallabot/wallapop"
 	"testing"
+
+	"roob.re/wallabot/wallapop"
 )
 
 func TestClient_Search(t *testing.T) {

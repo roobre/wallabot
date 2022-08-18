@@ -67,5 +67,5 @@ func (w *Wallabot) Start() error {
 		eChan <- w.re.ListenAndServe(w.c.MetricsListenAddress)
 	}()
 
-	return <- eChan
+	return <-eChan
 }

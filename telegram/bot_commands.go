@@ -2,13 +2,14 @@ package telegram
 
 import (
 	"fmt"
-	log "github.com/sirupsen/logrus"
-	"gopkg.in/tucnak/telebot.v2"
 	"math"
-	"roob.re/wallabot/database"
-	"roob.re/wallabot/wallapop"
 	"strconv"
 	"strings"
+
+	log "github.com/sirupsen/logrus"
+	"gopkg.in/tucnak/telebot.v2"
+	"roob.re/wallabot/database"
+	"roob.re/wallabot/wallapop"
 )
 
 func (wb *Wallabot) HandleSearch(m *telebot.Message) {

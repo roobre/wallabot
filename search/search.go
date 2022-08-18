@@ -1,12 +1,13 @@
 package search
 
 import (
-	log "github.com/sirupsen/logrus"
 	"math"
 	"math/rand"
+	"time"
+
+	log "github.com/sirupsen/logrus"
 	"roob.re/wallabot/database"
 	"roob.re/wallabot/wallapop"
-	"time"
 )
 
 const batchSearchInterval = 30 * time.Minute

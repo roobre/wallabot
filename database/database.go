@@ -13,7 +13,6 @@ type Database struct {
 
 const userKeyPrefix = "user_"
 
-
 func New(path string) (*Database, error) {
 	bdg, err := badger.Open(badger.DefaultOptions(path))
 	if err != nil {
