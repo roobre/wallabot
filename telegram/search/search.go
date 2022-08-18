@@ -10,9 +10,11 @@ import (
 
 type Search struct {
 	Keywords string
-	Price    int
+	MaxPrice int
+	MinPrice int
 	Strict   bool
 	RadiusKm int
+	NoZero   bool
 }
 
 const keyValueSeparator = "="
@@ -38,15 +40,27 @@ func New(raw string) (Search, error) {
 		value := strings.ToLower(parts[1])
 		switch key {
 		case "price":
-			s.Price, err = strconv.Atoi(value)
+			s.MaxPrice, err = strconv.Atoi(value)
 			if err != nil {
-				return s, fmt.Errorf("parsing price: %w", err)
+				return s, fmt.Errorf("parsing price %q: %w", value, err)
+			}
+
+		case "minprice":
+			s.MinPrice, err = strconv.Atoi(value)
+			if err != nil {
+				return s, fmt.Errorf("parsing price %q: %w", value, err)
 			}
 
 		case "strict":
 			s.Strict, err = strconv.ParseBool(value)
 			if err != nil {
 				return s, fmt.Errorf("parsing strict: %w", err)
+			}
+
+		case "nozero":
+			s.NoZero, err = strconv.ParseBool(value)
+			if err != nil {
+				return s, fmt.Errorf("parsing nozero: %w", err)
 			}
 
 		case "radius":
@@ -68,12 +82,10 @@ func New(raw string) (Search, error) {
 func (s Search) Args() wallapop.SearchArgs {
 	return wallapop.SearchArgs{
 		Keywords: s.Keywords,
-		MaxPrice: s.Price,
+		MaxPrice: s.MaxPrice,
+		MinPrice: s.MinPrice,
 		RadiusM:  s.RadiusKm * 1000,
 		Strict:   s.Strict,
+		NoZero:   s.NoZero,
 	}
-}
-
-func (s Search) String() string {
-	return fmt.Sprintf("price=%d radius=%d strict=%v %s", s.Price, s.RadiusKm, s.Strict, s.Keywords)
 }

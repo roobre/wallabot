@@ -1,7 +1,6 @@
 package search
 
 import (
-	"math"
 	"math/rand"
 	"time"
 
@@ -21,8 +20,8 @@ type Searcher struct {
 }
 
 type job struct {
-	user  *database.User
-	seach *database.SavedSearch
+	user        *database.User
+	savedSearch *database.SavedSearch
 }
 
 func New(db *database.Database, wp *wallapop.Client, notifier chan<- database.Notification) *Searcher {
@@ -42,7 +41,7 @@ func (s *Searcher) Start() {
 }
 
 func (s *Searcher) fillBacklog() {
-	lastFill := time.Now()
+	var lastFill time.Time
 
 	for {
 		time.Sleep(batchSearchInterval - time.Since(lastFill))
@@ -55,9 +54,10 @@ func (s *Searcher) fillBacklog() {
 
 		_ = s.db.UserEach(func(u *database.User) error {
 			for _, ss := range u.Searches {
+				ss.LegacyFill()
 				jobs = append(jobs, job{
-					user:  u,
-					seach: ss,
+					user:        u,
+					savedSearch: ss,
 				})
 			}
 
@@ -84,42 +84,37 @@ func (s *Searcher) fillBacklog() {
 func (s *Searcher) consumeBacklog() {
 	for job := range s.backlog {
 		// Get search radius, and user radius as a fallback
-		radiusKm := job.seach.RadiusKm
-		if radiusKm == 0 {
-			radiusKm = job.user.RadiusKm
+		if job.savedSearch.Search.RadiusKm == 0 {
+			job.savedSearch.Search.RadiusKm = job.user.RadiusKm
 		}
 
 		lat, long := job.user.Location()
+		args := job.savedSearch.Search.Args()
+		args.Latitude = lat
+		args.Longitude = long
 
-		items, err := s.wp.Search(wallapop.SearchArgs{
-			Keywords:  job.seach.Keywords,
-			RadiusM:   radiusKm * 1000,
-			Latitude:  lat,
-			Longitude: long,
-			MinPrice:  int(math.Round(job.seach.MinPrice)),
-			MaxPrice:  int(math.Round(job.seach.MaxPrice)),
-		})
+		items, err := s.wp.Search(args)
 		if err != nil {
 			log.WithFields(log.Fields{
 				"component": "search",
-			}).Errorf("Error processing backlog search '%s' for user %d: %v", job.seach.Keywords, job.user.ID, err)
+			}).Errorf("Error processing backlog search %q for user %d: %v", job.savedSearch.Search.Keywords, job.user.ID, err)
 			continue
 		}
 
 		for i := range items {
 			item := &items[i]
-			if item.Price > job.seach.MaxPrice {
+			if int(item.Price) > job.savedSearch.Search.MaxPrice {
 				continue
 			}
 
 			log.WithFields(log.Fields{
 				"component": "search",
-			}).Debugf("Found '%s' for '%s', queuing notification", item.ID, job.seach.Keywords)
+			}).Debugf("Found '%s' for %q, queuing notification", item.ID, job.savedSearch.Search.Keywords)
 
 			s.notifier <- database.Notification{
 				User:   job.user,
 				Item:   item,
-				Search: job.seach.Keywords,
+				Search: job.savedSearch.Search.Keywords,
 			}
 		}
 

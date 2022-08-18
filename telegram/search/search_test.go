@@ -21,7 +21,7 @@ func TestNew(t *testing.T) {
 			raw: "search with price=100 price",
 			expected: search.Search{
 				Keywords: "search with price",
-				Price:    100,
+				MaxPrice: 100,
 			},
 		},
 		{
@@ -39,12 +39,13 @@ func TestNew(t *testing.T) {
 			},
 		},
 		{
-			raw: "strict=true radius=3 all the things price=200 search",
+			raw: "strict=true radius=3 all the nozero=true things price=200 search",
 			expected: search.Search{
 				Keywords: "all the things search",
 				Strict:   true,
 				RadiusKm: 3,
-				Price:    200,
+				MaxPrice: 200,
+				NoZero:   true,
 			},
 		},
 	} {

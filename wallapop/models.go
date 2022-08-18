@@ -27,8 +27,10 @@ type SearchArgs struct {
 	Exchange  bool    `url:"exchange,omitempty"`
 
 	// Internal parameters, not passed down to Wallapop API
-	Pages  int  `url:"-"`
 	Strict bool `url:"-"` // If true, wallabot will not filter out results not containing any of the keywords in the title.
+	NoZero bool `url:"-"` // If true, wallabot will ignore results with a prize of 0€
+
+	pages int `url:"-"`
 }
 
 type Item struct {

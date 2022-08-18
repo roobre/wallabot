@@ -2,7 +2,6 @@ package telegram
 
 import (
 	"fmt"
-	"math"
 	"strconv"
 	"strings"
 
@@ -23,9 +22,9 @@ func (wb *Wallabot) HandleSearch(m *telebot.Message) {
 		return
 	}
 
-	if search.Keywords == "" || search.Price == 0 {
+	if search.Keywords == "" || search.MaxPrice == 0 {
 		sendLog(wb.bot.Reply(m,
-			fmt.Sprintf("`Usage: %s <price=100> [radius=100] [strict=true] search string...`", "/search"),
+			fmt.Sprintf("`Usage: %s <price=100> [radius=100] [strict=false] [nozero=false] search string...`", "/search"),
 		))
 		return
 	}
@@ -47,14 +46,15 @@ func (wb *Wallabot) HandleSearch(m *telebot.Message) {
 		return
 	}
 
-	lat, long := user.Location()
+	if search.RadiusKm == 0 {
+		search.RadiusKm = user.RadiusKm
+	}
 
 	args := search.Args()
+
+	lat, long := user.Location()
 	args.Latitude = lat
 	args.Longitude = long
-	if args.RadiusM == 0 {
-		args.RadiusM = user.RadiusKm * 1000
-	}
 
 	results, err := wb.wp.Search(args)
 	if err != nil {
@@ -87,31 +87,17 @@ func (wb *Wallabot) HandleSearch(m *telebot.Message) {
 }
 
 func (wb *Wallabot) HandleNewSearch(m *telebot.Message) {
-	parts := strings.Split(m.Payload, " ")
-	if len(parts) < 2 {
-		sendLog(wb.bot.Reply(m,
-			fmt.Sprintf("`Usage: %s <max price> [keywords...]`", "/new"),
-		))
-		return
-	}
-
-	// If user uses , as a decimal separator, replace it
-	if strings.Contains(parts[0], ",") && !strings.Contains(parts[0], ".") {
-		parts[0] = strings.ReplaceAll(parts[0], ",", ".")
-	}
-
-	maxPrice, err := strconv.ParseFloat(parts[0], 64)
+	search, err := searchcmd.New(m.Payload)
 	if err != nil {
 		sendLog(wb.bot.Reply(m,
-			fmt.Sprintf("I did not understand `%s` as a maximum price, the first word must be a number!", parts[0]),
+			fmt.Sprintf("Error %v", err),
 		))
 		return
 	}
 
-	keywords := strings.TrimSpace(strings.Join(parts[1:], " "))
-	if len(keywords) == 0 {
+	if search.Keywords == "" || search.MaxPrice == 0 {
 		sendLog(wb.bot.Reply(m,
-			"You need to specify at least one keyword",
+			fmt.Sprintf("`Usage: %s <price=100> [radius=100] [strict=false] [nozero=false] search string...`", "/search"),
 		))
 		return
 	}
@@ -123,8 +109,7 @@ func (wb *Wallabot) HandleNewSearch(m *telebot.Message) {
 		}
 
 		u.Searches.Set(&database.SavedSearch{
-			Keywords: keywords,
-			MaxPrice: math.Round(maxPrice),
+			Search: search,
 		})
 
 		return nil
@@ -138,7 +123,7 @@ func (wb *Wallabot) HandleNewSearch(m *telebot.Message) {
 	}
 
 	sendLog(wb.bot.Reply(m,
-		fmt.Sprintf("Created new saved search for `%s` and max price of %s", keywords, parts[0]),
+		fmt.Sprintf("Created new saved search `%s`", search.Keywords),
 	))
 }
 
@@ -164,7 +149,8 @@ func (wb *Wallabot) HandleSavedSearches(m *telebot.Message) {
 
 	var msg string
 	for _, ss := range searches {
-		msg += fmt.Sprintf("- `%s` (%.2f 📈, %d 🔔)\n", ss.Keywords, ss.MaxPrice, len(ss.SentItems))
+		ss.LegacyFill()
+		msg += fmt.Sprintf("%s\n", ss.Emojify())
 	}
 	sendLog(wb.bot.Reply(m, strings.TrimSpace(msg)))
 }
@@ -174,7 +160,7 @@ func (wb *Wallabot) HandleDeleteSearch(m *telebot.Message) {
 
 	if len(keywords) == 0 {
 		sendLog(wb.bot.Reply(m,
-			fmt.Sprintf("`Usage: %s [keywords...]`", "/delete"),
+			fmt.Sprintf("`Usage: %s <search>`", "/delete"),
 		))
 		return
 	}

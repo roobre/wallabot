@@ -25,8 +25,8 @@ func New() *Client {
 }
 
 func (sa SearchArgs) WithDefaults() SearchArgs {
-	if sa.Pages == 0 {
-		sa.Pages = searchPagesDefault
+	if sa.pages == 0 {
+		sa.pages = searchPagesDefault
 	}
 
 	return sa
@@ -41,20 +41,22 @@ func (c *Client) Search(args SearchArgs) ([]Item, error) {
 	var pageParams string // Returned by Wallapop API, collection of GET params that can be used to fetch the next page
 	var err error
 
-	for page := 0; page < args.Pages; page++ {
+	for page := 0; page < args.pages; page++ {
 		pageItems, pageParams, err = c.searchPage(args, pageParams)
 		if err != nil && err != errEmptyPage {
 			return items, err
 		}
 
-		if !args.Strict {
-			items = append(items, pageItems...)
-		} else {
-			for _, item := range pageItems {
-				if containsAny(item.Title, strings.Fields(args.Keywords)) {
-					items = append(items, item)
-				}
+		for _, item := range pageItems {
+			if args.Strict && !containsAny(item.Title, strings.Fields(args.Keywords)) {
+				continue
 			}
+
+			if args.NoZero && item.Price == 0 {
+				continue
+			}
+
+			items = append(items, item)
 		}
 
 		if err == errEmptyPage {

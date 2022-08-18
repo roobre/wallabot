@@ -3,13 +3,14 @@ package telegram
 import (
 	"errors"
 	"fmt"
-	log "github.com/sirupsen/logrus"
-	"gopkg.in/tucnak/telebot.v2"
 	"net/http"
-	"roob.re/wallabot/database"
-	"roob.re/wallabot/wallapop"
 	"strings"
 	"time"
+
+	log "github.com/sirupsen/logrus"
+	"gopkg.in/tucnak/telebot.v2"
+	"roob.re/wallabot/database"
+	"roob.re/wallabot/wallapop"
 )
 
 type Wallabot struct {
@@ -159,7 +160,7 @@ func (wb *Wallabot) processNotifications() {
 		err := wb.db.User(nt.User.ID, func(u *database.User) error {
 			search := u.Searches.Get(nt.Search)
 			if search == nil {
-				return fmt.Errorf("search '%s' not found", nt.Search)
+				return fmt.Errorf("search %q not found", nt.Search)
 			}
 
 			if search.Muted {
@@ -197,7 +198,7 @@ func (wb *Wallabot) processNotifications() {
 			if err != nil {
 				log.WithFields(log.Fields{
 					"component": "bot",
-				}).Printf("Error notifying '%s' (chatID %d)", nt.User.Name, nt.User.ChatID)
+				}).Printf("Error notifying '%s' (chatID %d) about %q: %v", nt.User.Name, nt.User.ChatID, nt.Search, err)
 				continue
 			}
 		}
