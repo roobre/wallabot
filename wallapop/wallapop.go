@@ -3,8 +3,10 @@ package wallapop
 import (
 	"encoding/json"
 	"fmt"
-	log "github.com/sirupsen/logrus"
 	"net/http"
+	"strings"
+
+	log "github.com/sirupsen/logrus"
 	wphttp "roob.re/wallabot/wallapop/http"
 )
 
@@ -45,7 +47,15 @@ func (c *Client) Search(args SearchArgs) ([]Item, error) {
 			return items, err
 		}
 
-		items = append(items, pageItems...)
+		if !args.Strict {
+			items = append(items, pageItems...)
+		} else {
+			for _, item := range pageItems {
+				if containsAny(item.Title, strings.Fields(args.Keywords)) {
+					items = append(items, item)
+				}
+			}
+		}
 
 		if err == errEmptyPage {
 			break
@@ -88,4 +98,15 @@ func (c *Client) searchPage(args SearchArgs, pageParams string) ([]Item, string,
 	pageParams = response.Header.Get(nextPageHeader)
 
 	return sr.Items, pageParams, nil
+}
+
+func containsAny(haystack string, needles []string) bool {
+	haystack = strings.ToLower(haystack)
+	for _, needle := range needles {
+		if strings.Contains(haystack, strings.ToLower(needle)) {
+			return true
+		}
+	}
+
+	return false
 }

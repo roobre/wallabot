@@ -25,7 +25,10 @@ type SearchArgs struct {
 	Urgent    bool    `url:"urgent,omitempty"`
 	Shipping  bool    `url:"shipping,omitempty"`
 	Exchange  bool    `url:"exchange,omitempty"`
-	Pages     int     `url:"-"`
+
+	// Internal parameters, not passed down to Wallapop API
+	Pages  int  `url:"-"`
+	Strict bool `url:"-"` // If true, wallabot will not filter out results not containing any of the keywords in the title.
 }
 
 type Item struct {
