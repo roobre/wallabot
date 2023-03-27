@@ -227,7 +227,7 @@ func (wb *Wallabot) HandleLocationText(m *telebot.Message) {
 		return
 	}
 
-	lat, err := strconv.ParseFloat(latLongTxt[0], 64)
+	lat, err := strconv.ParseFloat(strings.TrimSpace(latLongTxt[0]), 64)
 	if err != nil {
 		sendLog(wb.bot.Reply(m,
 			fmt.Sprintf("I couldn't parse '%s' as a latitude", latLongTxt[0]),
@@ -235,7 +235,7 @@ func (wb *Wallabot) HandleLocationText(m *telebot.Message) {
 		return
 	}
 
-	long, err := strconv.ParseFloat(latLongTxt[1], 64)
+	long, err := strconv.ParseFloat(strings.TrimSpace(latLongTxt[1]), 64)
 	if err != nil {
 		sendLog(wb.bot.Reply(m,
 			fmt.Sprintf("I couldn't parse '%s' as a longitude", latLongTxt[1]),
