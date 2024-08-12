@@ -39,13 +39,13 @@ func New(raw string) (Search, error) {
 		key := strings.ToLower(parts[0])
 		value := strings.ToLower(parts[1])
 		switch key {
-		case "price":
+		case "max", "price":
 			s.MaxPrice, err = strconv.Atoi(value)
 			if err != nil {
 				return s, fmt.Errorf("parsing price %q: %w", value, err)
 			}
 
-		case "minprice":
+		case "min", "minprice":
 			s.MinPrice, err = strconv.Atoi(value)
 			if err != nil {
 				return s, fmt.Errorf("parsing price %q: %w", value, err)
